@@ -1,0 +1,640 @@
+* {
+
+  margin: 0;
+  padding: 0;
+
+  box-sizing: border-box;
+
+  font-family: sans-serif;
+
+}
+
+body {
+
+  background: #ececec;
+
+}
+
+
+/* PAGE */
+
+.homepage {
+
+  min-height: 100vh;
+
+}
+
+
+/* =========================
+   TOPBAR
+========================= */
+
+.topbar {
+
+  width: 100%;
+  height: 70px;
+
+  background: #d8edf8;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  position: relative;
+
+  padding: 0 40px;
+
+}
+
+
+/* NAV MENU */
+
+.nav-menu {
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 120px;
+
+  font-size: 18px;
+
+  font-weight: bold;
+
+  color: #4d372f;
+
+}
+
+
+.nav-menu span {
+
+  cursor: pointer;
+
+  transition: 0.2s;
+
+}
+
+
+.nav-menu span:hover {
+
+  transform: scale(1.05);
+
+}
+
+
+/* RIGHT */
+
+.nav-right {
+
+  position: absolute;
+
+  right: 40px;
+
+}
+
+
+/* PROFILE BUTTON */
+
+.profile-btn {
+
+  width: 170px;
+  height: 45px;
+
+  border: none;
+
+  border-radius: 30px;
+
+  background: white;
+
+  font-size: 18px;
+
+  font-weight: bold;
+
+  color: #4d372f;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+
+}
+
+
+.profile-btn:hover {
+
+  transform: scale(1.03);
+
+}
+
+
+/* =========================
+   PROFILE POPUP
+========================= */
+
+.profile-popup {
+
+  position: absolute;
+
+  top: 60px;
+
+  right: 0;
+
+  width: 420px;
+
+  background: white;
+
+  border-radius: 25px;
+
+  padding: 35px;
+
+  box-shadow:
+    0 10px 30px
+    rgba(0,0,0,0.3);
+
+  z-index: 9999;
+
+  animation:
+    popupFade 0.2s ease;
+
+}
+
+
+/* POPUP ANIMATION */
+
+@keyframes popupFade {
+
+  from {
+
+    opacity: 0;
+
+    transform:
+      translateY(-10px);
+
+  }
+
+  to {
+
+    opacity: 1;
+
+    transform:
+      translateY(0);
+
+  }
+
+}
+
+
+.profile-popup h2 {
+
+  color: #4d372f;
+
+  margin-bottom: 20px;
+
+}
+
+
+.profile-popup p {
+
+  font-size: 20px;
+
+  margin: 18px 0;
+
+  color: #444;
+
+}
+
+
+/* PROFILE BUTTONS */
+
+.profile-buttons {
+
+  display: flex;
+
+  justify-content: flex-end;
+
+  gap: 15px;
+
+  margin-top: 30px;
+
+}
+
+
+.close-btn {
+
+  width: 120px;
+  height: 50px;
+
+  border: none;
+
+  border-radius: 15px;
+
+  background: gray;
+
+  color: white;
+
+  font-size: 18px;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+
+}
+
+
+.close-btn:hover {
+
+  opacity: 0.9;
+
+}
+
+
+.logout-btn {
+
+  width: 120px;
+  height: 50px;
+
+  border: none;
+
+  border-radius: 15px;
+
+  background: #c0392b;
+
+  color: white;
+
+  font-size: 18px;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+
+}
+
+
+.logout-btn:hover {
+
+  opacity: 0.9;
+
+}
+
+
+/* =========================
+   HERO
+========================= */
+
+.hero-section {
+
+  width: 100%;
+  height: 260px;
+
+  background: #f6ebb3;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 60px;
+
+}
+
+
+.hero-logo {
+
+  width: 420px;
+
+}
+
+
+.hero-line {
+
+  width: 4px;
+  height: 200px;
+
+  background: gray;
+
+}
+
+
+.hero-right h1 {
+
+  font-size: 90px;
+
+  color: #4d372f;
+
+  font-weight: 900;
+
+  line-height: 100px;
+
+}
+
+
+/* =========================
+   CONTENT
+========================= */
+
+.content-section {
+
+  width: 85%;
+
+  margin: auto;
+
+  padding-top: 40px;
+
+}
+
+
+/* =========================
+   FILTER
+========================= */
+
+.filter-section {
+
+  display: flex;
+
+  gap: 80px;
+
+  align-items: center;
+
+  margin-bottom: 40px;
+
+}
+
+
+.filter-group {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 20px;
+
+}
+
+
+.filter-group label {
+
+  font-size: 22px;
+
+  font-weight: bold;
+
+  color: #4d372f;
+
+}
+
+
+.filter-group input,
+.filter-group select {
+
+  width: 320px;
+
+  height: 50px;
+
+  border: 2px solid #555;
+
+  border-radius: 20px;
+
+  padding: 0 20px;
+
+  font-size: 20px;
+
+  outline: none;
+
+}
+
+
+/* =========================
+   ROOM LIST
+========================= */
+
+.room-list {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 50px;
+
+}
+
+
+/* =========================
+   ROOM CARD
+========================= */
+
+.room-card {
+
+  width: 100%;
+
+  min-height: 220px;
+
+  background: #d8edf8;
+
+  border-radius: 30px;
+
+  display: flex;
+
+  gap: 35px;
+
+  padding: 20px;
+
+  box-shadow:
+    0 10px 20px
+    rgba(0,0,0,0.2);
+
+}
+
+
+.room-image {
+
+  width: 220px;
+  height: 180px;
+
+  background: gray;
+
+  border-radius: 25px;
+
+  display: flex;
+
+  justify-content: center;
+  align-items: center;
+
+  color: white;
+
+  font-size: 36px;
+
+}
+
+
+.room-info {
+
+  flex: 1;
+
+}
+
+
+.room-info h2 {
+
+  font-size: 40px;
+
+  color: #666;
+
+}
+
+
+.room-info p {
+
+  margin-top: 10px;
+
+  font-size: 24px;
+
+  color: #666;
+
+}
+
+
+/* =========================
+   TIME BAR
+========================= */
+
+.time-bar {
+
+  width: 100%;
+  height: 70px;
+
+  border: 2px solid #555;
+
+  border-radius: 15px;
+
+  margin-top: 25px;
+
+  background: #edf4f7;
+
+}
+
+
+.time-row {
+
+  display: flex;
+
+  justify-content: space-between;
+
+  margin-top: 10px;
+
+  font-size: 24px;
+
+  color: gray;
+
+}
+
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 1200px) {
+
+  .hero-section {
+
+    flex-direction: column;
+
+    height: auto;
+
+    padding: 40px;
+
+  }
+
+  .hero-line {
+
+    display: none;
+
+  }
+
+  .hero-right h1 {
+
+    text-align: center;
+
+  }
+
+  .filter-section {
+
+    flex-direction: column;
+
+    align-items: flex-start;
+
+  }
+
+}
+
+
+@media (max-width: 768px) {
+
+  .topbar {
+
+    flex-direction: column;
+
+    height: auto;
+
+    gap: 20px;
+
+    padding: 20px;
+
+  }
+
+  .nav-menu {
+
+    gap: 30px;
+
+    flex-wrap: wrap;
+
+    justify-content: center;
+
+  }
+
+  .hero-logo {
+
+    width: 250px;
+
+  }
+
+  .hero-right h1 {
+
+    font-size: 50px;
+
+    line-height: 60px;
+
+  }
+
+  .room-card {
+
+    flex-direction: column;
+
+  }
+
+  .room-image {
+
+    width: 100%;
+
+  }
+
+  .filter-group input,
+  .filter-group select {
+
+    width: 100%;
+
+  }
+
+  .profile-popup {
+
+    width: 95vw;
+
+    right: 50%;
+
+    transform: translateX(50%);
+
+  }
+
+}

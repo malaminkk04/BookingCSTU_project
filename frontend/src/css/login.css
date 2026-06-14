@@ -1,0 +1,370 @@
+* {
+
+  margin: 0;
+  padding: 0;
+
+  box-sizing: border-box;
+
+  font-family: sans-serif;
+
+}
+
+body {
+
+  background: #ececec;
+
+}
+
+
+/* PAGE */
+
+.login-page {
+
+  width: 100%;
+
+  min-height: 100vh;
+
+  display: flex;
+
+  justify-content: center;
+  align-items: center;
+
+  gap: 80px;
+
+  padding: 40px;
+
+}
+
+
+/* =========================
+   LEFT
+========================= */
+
+.left-section {
+
+  width: 60%;
+
+  max-width: 900px;
+
+  height: 720px;
+
+  background: #d8edf8;
+
+  border-radius: 25px;
+
+  position: relative;
+
+  padding: 50px;
+
+}
+
+
+.logo-wrapper {
+
+  display: flex;
+
+  justify-content: center;
+
+}
+
+
+.logo {
+
+  width: 350px;
+
+}
+
+
+/* BOOKING TEXT */
+
+.booking-wrapper {
+
+  position: absolute;
+
+  left: 50px;
+  bottom: 60px;
+
+}
+
+
+.booking-wrapper h1 {
+
+  font-size: 90px;
+
+  color: #4d372f;
+
+  font-weight: 900;
+
+}
+
+
+.booking-line {
+
+  width: 80%;
+
+  height: 5px;
+
+  background: gray;
+
+  border-radius: 20px;
+
+  margin: 10px 0 20px 0;
+
+}
+
+
+.booking-wrapper p {
+
+  color: gray;
+
+  font-size: 22px;
+
+}
+
+
+/* =========================
+   RIGHT
+========================= */
+
+.right-section {
+
+  display: flex;
+
+  justify-content: center;
+  align-items: center;
+
+}
+
+
+.login-box {
+
+  width: 420px;
+
+  min-height: 720px;
+
+  background: #4d372f;
+
+  border-radius: 25px;
+
+  padding: 40px;
+
+}
+
+
+/* =========================
+   LOGIN TITLE
+========================= */
+
+.login-title {
+
+  width: 100%;
+
+  height: 170px;
+
+  background: #d8edf8;
+
+  border-radius: 25px;
+
+  display: flex;
+
+  justify-content: center;
+  align-items: center;
+
+  font-size: 72px;
+
+  font-weight: bold;
+
+  color: gray;
+
+}
+
+
+/* =========================
+   FORM
+========================= */
+
+.form-wrapper {
+
+  margin-top: 40px;
+
+}
+
+
+.form-wrapper label {
+
+  display: block;
+
+  color: #d8edf8;
+
+  font-size: 22px;
+
+  font-weight: bold;
+
+  margin-bottom: 15px;
+
+  margin-top: 40px;
+
+}
+
+
+/* INPUT */
+
+.form-wrapper input {
+
+  width: 100%;
+
+  height: 72px;
+
+  border: none;
+
+  border-radius: 20px;
+
+  background: #f3e8a8;
+
+  padding: 0 30px;
+
+  font-size: 28px;
+
+  color: #666;
+
+  outline: none;
+
+  transition: 0.2s;
+
+}
+
+
+/* FIX INPUT COLOR CHANGE */
+
+.form-wrapper input:focus {
+
+  background: #f3e8a8;
+
+  color: #666;
+
+  border: none;
+
+  outline: none;
+
+}
+
+
+/* FIX CHROME AUTOFILL */
+
+.form-wrapper input:-webkit-autofill,
+.form-wrapper input:-webkit-autofill:hover,
+.form-wrapper input:-webkit-autofill:focus,
+.form-wrapper input:-webkit-autofill:active {
+
+  -webkit-text-fill-color: #666;
+
+  -webkit-box-shadow:
+    0 0 0px 1000px #f3e8a8 inset;
+
+  transition:
+    background-color 9999s ease-in-out 0s;
+
+}
+
+
+/* =========================
+   BUTTON
+========================= */
+
+.button-wrapper {
+
+  display: flex;
+
+  justify-content: flex-end;
+
+  margin-top: 55px;
+
+}
+
+
+.button-wrapper button {
+
+  width: 150px;
+
+  height: 65px;
+
+  border: none;
+
+  border-radius: 20px;
+
+  background: #3f9441;
+
+  color: white;
+
+  font-size: 32px;
+
+  font-weight: bold;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+
+}
+
+
+.button-wrapper button:hover {
+
+  opacity: 0.9;
+
+  transform: scale(1.03);
+
+}
+
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 1200px) {
+
+  .login-page {
+
+    flex-direction: column;
+
+  }
+
+  .left-section {
+
+    width: 100%;
+
+    height: auto;
+
+    min-height: 500px;
+
+  }
+
+  .booking-wrapper h1 {
+
+    font-size: 60px;
+
+  }
+
+}
+
+
+@media (max-width: 768px) {
+
+  .login-box {
+
+    width: 100%;
+
+  }
+
+  .booking-wrapper h1 {
+
+    font-size: 45px;
+
+  }
+
+  .logo {
+
+    width: 250px;
+
+  }
+
+}
