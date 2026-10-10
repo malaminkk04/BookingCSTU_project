@@ -1,370 +1,265 @@
-* {
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap');
 
+* {
   margin: 0;
   padding: 0;
-
   box-sizing: border-box;
-
-  font-family: sans-serif;
-
+  font-family: 'IBM Plex Sans Thai', Inter, sans-serif;
 }
 
 body {
-
-  background: #ececec;
-
+  color: #202b3c;
+  background: #f6f8fb;
 }
-
-
-/* PAGE */
 
 .login-page {
-
   width: 100%;
-
   min-height: 100vh;
-
   display: flex;
-
   justify-content: center;
   align-items: center;
-
-  gap: 80px;
-
-  padding: 40px;
-
+  gap: clamp(24px, 4vw, 56px);
+  padding: clamp(24px, 5vw, 64px);
 }
-
-
-/* =========================
-   LEFT
-========================= */
 
 .left-section {
-
-  width: 60%;
-
-  max-width: 900px;
-
-  height: 720px;
-
-  background: #d8edf8;
-
-  border-radius: 25px;
-
   position: relative;
-
-  padding: 50px;
-
+  isolation: isolate;
+  width: min(58%, 800px);
+  min-height: 680px;
+  overflow: hidden;
+  padding: clamp(32px, 5vw, 58px);
+  border: 1px solid #e1e7ef;
+  border-radius: 22px;
+  background: linear-gradient(145deg, #ffffff, #eaf1fb);
+  box-shadow: 0 18px 55px rgba(23, 43, 77, .09);
 }
 
+.left-section::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: -165px;
+  right: -145px;
+  width: 360px;
+  height: 360px;
+  border: 1px solid rgba(40, 89, 168, .12);
+  border-radius: 50%;
+  box-shadow: 0 0 0 36px rgba(40, 89, 168, .035), 0 0 0 72px rgba(40, 89, 168, .02);
+}
 
 .logo-wrapper {
-
   display: flex;
-
   justify-content: center;
-
+  position: relative;
+  z-index: 1;
 }
-
 
 .logo {
-
-  width: 350px;
-
+  width: min(350px, 82%);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, .08));
 }
-
-
-/* BOOKING TEXT */
 
 .booking-wrapper {
-
   position: absolute;
-
-  left: 50px;
-  bottom: 60px;
-
+  z-index: 1;
+  right: clamp(32px, 5vw, 58px);
+  bottom: clamp(38px, 5vw, 58px);
+  left: clamp(32px, 5vw, 58px);
 }
-
 
 .booking-wrapper h1 {
-
-  font-size: 90px;
-
-  color: #4d372f;
-
+  color: #172b4d;
+  font-family: Inter, 'IBM Plex Sans Thai', sans-serif;
+  font-size: clamp(44px, 6vw, 76px);
   font-weight: 900;
-
+  line-height: 1.05;
+  letter-spacing: -.045em;
 }
-
 
 .booking-line {
-
   width: 80%;
-
-  height: 5px;
-
-  background: gray;
-
+  max-width: 420px;
+  height: 4px;
+  margin: 18px 0 20px;
   border-radius: 20px;
-
-  margin: 10px 0 20px 0;
-
+  background: #ef7d32;
 }
-
 
 .booking-wrapper p {
-
-  color: gray;
-
-  font-size: 22px;
-
+  color: #5e6c80;
+  font-size: 16px;
+  line-height: 1.7;
 }
-
-
-/* =========================
-   RIGHT
-========================= */
 
 .right-section {
-
   display: flex;
-
+  flex: 0 0 min(420px, 38%);
   justify-content: center;
   align-items: center;
-
 }
-
 
 .login-box {
-
-  width: 420px;
-
-  min-height: 720px;
-
-  background: #4d372f;
-
-  border-radius: 25px;
-
-  padding: 40px;
-
+  width: 100%;
+  min-height: 0;
+  padding: clamp(24px, 3vw, 38px);
+  border: 1px solid #e1e7ef;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 18px 55px rgba(23, 43, 77, .09);
 }
-
-
-/* =========================
-   LOGIN TITLE
-========================= */
 
 .login-title {
-
-  width: 100%;
-
-  height: 170px;
-
-  background: #d8edf8;
-
-  border-radius: 25px;
-
   display: flex;
-
+  width: 100%;
+  min-height: 110px;
   justify-content: center;
   align-items: center;
-
-  font-size: 72px;
-
-  font-weight: bold;
-
-  color: gray;
-
+  border-radius: 14px;
+  background: linear-gradient(115deg, #10213b, #2859a8);
+  color: #ffffff;
+  font-family: Inter, sans-serif;
+  font-size: clamp(38px, 4vw, 54px);
+  font-weight: 800;
+  letter-spacing: .08em;
 }
-
-
-/* =========================
-   FORM
-========================= */
 
 .form-wrapper {
-
-  margin-top: 40px;
-
+  margin-top: 26px;
 }
-
 
 .form-wrapper label {
-
   display: block;
-
-  color: #d8edf8;
-
-  font-size: 22px;
-
-  font-weight: bold;
-
-  margin-bottom: 15px;
-
-  margin-top: 40px;
-
+  margin: 24px 0 8px;
+  color: #34445a;
+  font-family: Inter, 'IBM Plex Sans Thai', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
 }
-
-
-/* INPUT */
 
 .form-wrapper input {
-
   width: 100%;
-
-  height: 72px;
-
-  border: none;
-
-  border-radius: 20px;
-
-  background: #f3e8a8;
-
-  padding: 0 30px;
-
-  font-size: 28px;
-
-  color: #666;
-
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid #dce3ec;
+  border-radius: 9px;
   outline: none;
-
-  transition: 0.2s;
-
+  background: #ffffff;
+  color: #202b3c;
+  font-size: 14px;
+  transition: border-color .2s, box-shadow .2s;
 }
-
-
-/* FIX INPUT COLOR CHANGE */
 
 .form-wrapper input:focus {
-
-  background: #f3e8a8;
-
-  color: #666;
-
-  border: none;
-
+  border-color: #6d91ca;
   outline: none;
-
+  background: #ffffff;
+  color: #202b3c;
+  box-shadow: 0 0 0 3px rgba(40, 89, 168, .1);
 }
-
-
-/* FIX CHROME AUTOFILL */
 
 .form-wrapper input:-webkit-autofill,
 .form-wrapper input:-webkit-autofill:hover,
 .form-wrapper input:-webkit-autofill:focus,
 .form-wrapper input:-webkit-autofill:active {
-
-  -webkit-text-fill-color: #666;
-
-  -webkit-box-shadow:
-    0 0 0px 1000px #f3e8a8 inset;
-
-  transition:
-    background-color 9999s ease-in-out 0s;
-
+  -webkit-text-fill-color: #202b3c;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  transition: background-color 9999s ease-in-out 0s;
 }
-
-
-/* =========================
-   BUTTON
-========================= */
 
 .button-wrapper {
-
   display: flex;
-
-  justify-content: flex-end;
-
-  margin-top: 55px;
-
+  justify-content: stretch;
+  margin-top: 30px;
 }
-
 
 .button-wrapper button {
-
-  width: 150px;
-
-  height: 65px;
-
-  border: none;
-
-  border-radius: 20px;
-
-  background: #3f9441;
-
-  color: white;
-
-  font-size: 32px;
-
-  font-weight: bold;
-
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 9px;
+  background: #2859a8;
+  color: #ffffff;
+  font-family: Inter, 'IBM Plex Sans Thai', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .04em;
   cursor: pointer;
-
-  transition: 0.2s;
-
+  transition: background .2s, transform .15s;
 }
-
 
 .button-wrapper button:hover {
-
-  opacity: 0.9;
-
-  transform: scale(1.03);
-
+  transform: translateY(-1px);
+  background: #1f4789;
 }
 
-
-/* =========================
-   RESPONSIVE
-========================= */
-
 @media (max-width: 1200px) {
-
   .login-page {
-
-    flex-direction: column;
-
+    gap: 24px;
   }
 
   .left-section {
-
-    width: 100%;
-
-    height: auto;
-
-    min-height: 500px;
-
+    width: 56%;
+    min-height: 620px;
   }
 
   .booking-wrapper h1 {
-
-    font-size: 60px;
-
+    font-size: clamp(42px, 5.2vw, 64px);
   }
-
 }
 
-
 @media (max-width: 768px) {
+  .login-page {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 18px;
+    padding: 18px;
+  }
 
-  .login-box {
-
+  .left-section,
+  .right-section {
     width: 100%;
+    flex-basis: auto;
+  }
 
+  .left-section {
+    min-height: 380px;
+    padding: 28px;
+  }
+
+  .booking-wrapper {
+    right: 28px;
+    bottom: 28px;
+    left: 28px;
   }
 
   .booking-wrapper h1 {
+    font-size: clamp(40px, 9vw, 56px);
+  }
 
-    font-size: 45px;
-
+  .login-box {
+    width: 100%;
+    min-height: 0;
   }
 
   .logo {
+    width: min(250px, 72%);
+  }
+}
 
-    width: 250px;
-
+@media (max-width: 420px) {
+  .left-section {
+    min-height: 330px;
   }
 
+  .login-box {
+    padding: 20px;
+  }
+
+  .login-title {
+    min-height: 84px;
+  }
 }

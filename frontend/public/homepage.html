@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ระบบจองห้องประชุม Booking CSTU Room">
+  <title>CSTU Room Booking | Booking CSTU</title>
+  <link rel="stylesheet" href="./css/homepage.css">
+  <script src="./js/homepage.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./homepage.html" aria-label="Booking CSTU Home">
+      <img class="brand-logo" src="./logo.png" alt="Booking CSTU logo"
+           onerror="this.hidden=true">
+      <span class="brand-copy">
+        <strong>CSTU ROOM BOOKING</strong>
+        <small>BOOKING CSTU ROOM</small>
+      </span>
+    </a>
+
+    <nav class="main-nav" aria-label="เมนูหลัก">
+      <a href="/mybooking" class="nav-link">MY BOOKING</a>
+      <a href="./Guide.html" class="nav-link">GUIDE</a>
+      <a href="./Rule.html" class="nav-link">RULE</a>
+      <a href="./review.html" class="nav-link">REVIEW</a>
+      <button type="button" id="profileButton" class="profile-button"
+              aria-expanded="false" aria-controls="profilePopup">
+        <span class="profile-avatar" aria-hidden="true"></span>
+        <span>PROFILE</span>
+        <span class="chevron" aria-hidden="true">⌄</span>
+      </button>
+    </nav>
+
+    <section id="profilePopup" class="profile-popup" hidden>
+      <h2>ข้อมูลผู้ใช้</h2>
+      <dl class="profile-details">
+        <div><dt>ชื่อ</dt><dd id="profileName">-</dd></div>
+        <div><dt>Username</dt><dd id="profileUsername">-</dd></div>
+        <div><dt>คณะ</dt><dd id="profileFaculty">-</dd></div>
+        <div><dt>สาขา</dt><dd id="profileDepartment">-</dd></div>
+        <div><dt>Email</dt><dd id="profileEmail">-</dd></div>
+      </dl>
+      <button type="button" id="logoutButton"
+              class="button button-danger button-full">LOGOUT</button>
+    </section>
+  </header>
+
+  <main class="page-content">
+    <section class="page-heading">
+      <div>
+        <p class="eyebrow">THAMMASAT UNIVERSITY</p>
+        <h1>จองห้อง</h1>
+        <p class="page-subtitle">
+          วิทยาการคอมพิวเตอร์ มหาวิทยาลัยธรรมศาสตร์ ศูนย์รังสิต
+        </p>
+      </div>
+      <div class="heading-mark" aria-hidden="true">BOOK<br>YOUR<br>ROOM</div>
+    </section>
+
+    <section class="filter-panel" aria-label="ค้นหาและกรองห้อง">
+      <div class="filter-field">
+        <label for="floorFilter">ชั้น</label>
+        <select id="floorFilter">
+          <option value="all">ทุกชั้น</option>
+          <option value="1">ชั้น 1</option>
+          <option value="2">ชั้น 2</option>
+          <option value="3">ชั้น 3</option>
+        </select>
+      </div>
+
+      <div class="filter-field date-filter-field">
+        <label for="bookingDateFilter">วันที่ต้องการจอง</label>
+        <input id="bookingDateFilter" type="date">
+      </div>
+
+      <div class="filter-field search-field">
+        <label for="roomSearch">ค้นหาห้อง</label>
+        <input id="roomSearch" type="search"
+               placeholder="พิมพ์ชื่อห้อง..." autocomplete="off">
+      </div>
+
+      <button type="button" id="clearFiltersButton"
+              class="button button-light clear-button">ล้างตัวกรอง</button>
+    </section>
+
+    <div class="results-heading">
+      <div>
+        <h2>ห้องทั้งหมด</h2>
+        <p id="roomCount" class="muted-text">กำลังโหลดข้อมูลห้อง...</p>
+      </div>
+    </div>
+
+    <div id="statusMessage" class="status-message"
+         role="status" aria-live="polite">กำลังโหลดข้อมูลห้อง...</div>
+
+    <div id="roomList" class="room-list"></div>
+  </main>
+
+  <div id="bookingModal" class="modal-backdrop" hidden>
+    <section class="booking-modal" role="dialog" aria-modal="true"
+             aria-labelledby="bookingModalTitle">
+      <button type="button" id="closeBookingModal" class="modal-close"
+              aria-label="ปิดหน้าต่าง">×</button>
+
+      <p class="eyebrow">BOOKING DETAILS</p>
+      <h2 id="bookingModalTitle">จองห้อง</h2>
+      <p id="selectedRoomName" class="selected-room-name"></p>
+
+      <form id="bookingForm">
+        <div class="form-field">
+          <label for="bookingDate">วันที่จอง</label>
+          <input id="bookingDate" name="date" type="date" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label for="startTime">เวลาเริ่มต้น</label>
+            <select id="startTime" name="start_time" required></select>
+          </div>
+
+          <div class="form-field">
+            <label for="endTime">เวลาสิ้นสุด</label>
+            <select id="endTime" name="end_time" required></select>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label for="bookingPurpose">วัตถุประสงค์ (ถ้ามี)</label>
+          <textarea id="bookingPurpose" name="purpose" rows="3"
+                    maxlength="500"
+                    placeholder="ระบุวัตถุประสงค์การใช้ห้อง"></textarea>
+        </div>
+
+        <p class="form-note">
+          จองได้ในวันจันทร์–ศุกร์ เวลา 09:00–16:00 น.
+          ระยะเวลาการจอง 1–2 ชั่วโมง
+        </p>
+
+        <p id="bookingError" class="form-error" role="alert" hidden></p>
+
+        <div class="modal-actions">
+          <button type="button" id="cancelBookingButton"
+                  class="button button-light">ยกเลิก</button>
+          <button type="submit" id="submitBookingButton"
+                  class="button button-primary">ยืนยันการจอง</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <footer class="site-footer">
+    <p>BOOKING CSTU ROOM · Thammasat University</p>
+  </footer>
+</body>
+</html>

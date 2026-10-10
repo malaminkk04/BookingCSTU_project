@@ -1,590 +1,407 @@
-import { useState, useEffect } from "react";
-
-import axios from "axios";
-
-import {
-  useNavigate
-} from "react-router-dom";
-
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "../css/homepage.css";
 
-// ข้อมูลห้องแบ่งตามชั้น (ใช้เป็นข้อมูลตัวอย่าง จนกว่า backend จะมี endpoint /api/rooms จริง)
-const MOCK_ROOMS_BY_FLOOR = [
-  {
-    floor: 1,
-    rooms: [
-      {
-        id: "107",
-        room_name: "107 ห้องปฏิบัติการคอมพิวเตอร์",
-        capacity_label: "ความจุ: 80 คน พร้อมคอมพิวเตอร์",
-        description:
-          "โปรเจคเตอร์ 2 | Whiteboard พร้อมปากกาและแปรงลบ\nอุปกรณ์ที่เกี่ยวข้องกับการเรียน(คอมพิวเตอร์ 1, Visualizer 1, ไมโครโฟนสาย 1, ไมโครโฟนลอย 2)"
-      },
-      {
-        id: "111-classroom",
-        room_name: "111 ห้องปฏิบัติการคอมพิวเตอร์ (ห้องเรียน)",
-        capacity_label: "ความจุ: 40 คน พร้อมคอมพิวเตอร์",
-        description:
-          "โปรเจคเตอร์ 1 | Whiteboard พร้อมปากกาและแปรงลบ\nอุปกรณ์ที่เกี่ยวข้องกับการเรียน(คอมพิวเตอร์ 1, Visualizer 1, ไมโครโฟนสาย 1)"
-      },
-      {
-        id: "111-greader",
-        room_name: "111 ห้องปฏิบัติการคอมพิวเตอร์ (Greader)",
-        capacity_label: "ความจุ: 20 คน พร้อมคอมพิวเตอร์",
-        description: ""
-      }
-    ]
-  },
-  {
-    floor: 2,
-    rooms: [
-      {
-        id: "meeting-1",
-        room_name: "ห้องประชุม 1",
-        capacity_label: "ความจุ: 24 คน",
-        description:
-          "จอทีวี 4 | โปรเจคเตอร์ 1\nคอมพิวเตอร์ 1, Visualizer 1, ไมโครโฟนห้องประชุม 18"
-      },
-      {
-        id: "meeting-2",
-        room_name: "ห้องประชุม 2",
-        capacity_label: "ความจุ: 24 คน",
-        description:
-          "โปรเจคเตอร์ 1\nคอมพิวเตอร์ 1, Visualizer 1, ไมโครโฟนห้องประชุม 18"
-      },
-      {
-        id: "213",
-        room_name: "213 ห้องปฏิบัติการคอมพิวเตอร์พื้นฐาน",
-        capacity_label: "ความจุ: 60 คน พร้อมคอมพิวเตอร์",
-        description: 
-          "โปรเจคเตอร์ 1 | Whiteboard พร้อมปากกาและแปรงลบ\nอุปกรณ์ที่เกี่ยวข้องกับการเรียน(คอมพิวเตอร์ 1, Visualizer 1, ไมโครโฟนสาย 1)"
-      }
-    ]
-  },
-  {
-    floor: 3,
-    rooms: [
-      {
-        id: "301",
-        room_name: "ห้องประชุม 301",
-        capacity_label: "ความจุ: 4 คน",
-        description:
-          "จอทีวี 1 | Whiteboard พร้อมปากกาและแปรงลบ"
-      },
-      {
-        id: "302",
-        room_name: "ห้องประชุม 302",
-        capacity_label: "ความจุ: 8 คน",
-        description:
-          "จอทีวี 1 | Whiteboard พร้อมปากกาและแปรงลบ | คอมพิวเตอร์ 1"
-      },
-      {
-        id: "303",
-        room_name: "ห้องประชุม 303",
-        capacity_label: "ความจุ: 8 คน",
-        description: 
-          "จอทีวี 1 | Whiteboard พร้อมปากกาและแปรงลบ | คอมพิวเตอร์ 1"
-      },
-      {
-        id: "304",
-        room_name: "ห้องประชุม 304",
-        capacity_label: "ความจุ: 8 คน",
-        description: 
-          "จอทีวี 1 | Whiteboard พร้อมปากกาและแปรงลบ | คอมพิวเตอร์ 1"
-      },
-      {
-        id: "305",
-        room_name: "ห้องประชุม 305",
-        capacity_label: "ความจุ: 8 คน",
-        description: 
-          "จอทีวี 1 | Whiteboard พร้อมปากกาและแปรงลบ | คอมพิวเตอร์ 1"
-      },
-      {
-        id: "306",
-        room_name: "ห้องเรียน 306 (สำหรับปริญญาโท)",
-        capacity_label: "ความจุ: 50 คน ",
-        description: 
-          "โปรเจคเตอร์ 1 | Whiteboard พร้อมปากกาและแปรงลบ\nอุปกรณ์ที่เกี่ยวข้องกับการเรียน(คอมพิวเตอร์ 1, Visualizer 1, ไมโครโฟนสาย 1,ไมโครโฟนลอย 2)"
-      },
-      {
-        id: "308",
-        room_name: "ห้องเรียน 308",
-        capacity_label: "ความจุ: 70 คน ",
-        description: 
-          "โปรเจคเตอร์ 1 | Whiteboard พร้อมปากกาและแปรงลบ\nอุปกรณ์ที่เกี่ยวข้องกับการเรียน(คอมพิวเตอร์ 1, Visualizer 1, ไมโครโฟนลอย 2)"
-      },
-      {
-        id: "309",
-        room_name: "ห้องเรียน 309",
-        capacity_label: "ความจุ: 70 คน ",
-        description: 
-          "โปรเจคเตอร์ 1 | Whiteboard พร้อมปากกาและแปรงลบ\nอุปกรณ์ที่เกี่ยวข้องกับการเรียน(คอมพิวเตอร์ 1, Visualizer 1, ไมโครโฟนสาย 1,ไมโครโฟนลอย 2)"
-      },
-      {
-        id: "310",
-        room_name: "ห้องเรียน 310",
-        capacity_label: "ความจุ: 70 คน ",
-        description: 
-          "โปรเจคเตอร์ 1 | Whiteboard พร้อมปากกาและแปรงลบ\nอุปกรณ์ที่เกี่ยวข้องกับการเรียน(คอมพิวเตอร์ 1, Visualizer 1, ไมโครโฟนสาย 1,ไมโครโฟนลอย 2)"
-      },
-      {
-        id: "314",
-        room_name: "ห้องประชุม 314",
-        capacity_label: "ความจุ: 8 คน",
-        description: 
-          "จอทีวี 1 | Whiteboard พร้อมปากกาและแปรงลบ | คอมพิวเตอร์ 1"
-      },
-      {
-        id: "315",
-        room_name: "ห้องประชุม 315",
-        capacity_label: "ความจุ: 8 คน",
-        description: 
-          "จอทีวี 1 | Whiteboard พร้อมปากกาและแปรงลบ | คอมพิวเตอร์ 1"
-      }
-    ]
-  }
+const API_BASE_URL = "http://localhost:5001";
+const STORAGE_USER_KEY = "user";
+const STORAGE_TOKEN_KEY = "token";
+const [refreshRooms, setRefreshRooms] = useState(0);
 
+function isWeekendDate(value) {
+  if (!value) return false;
 
+  const day = new Date(`${value}T00:00:00`).getDay();
+  return day === 0 || day === 6;
+}
 
-];
+function localISODate(date = new Date()) {
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+}
 
-// จัดกลุ่มรายการห้อง (จาก API) ให้เป็น section ตามชั้น
-// รองรับกรณีห้องแต่ละรายการมี field "floor" ติดมาด้วย
-function groupRoomsByFloor(rooms) {
-  const grouped = {};
+function roomName(room) {
+  return room.room_name ?? room.name ?? room.roomName ?? "ไม่ระบุชื่อห้อง";
+}
 
-  rooms.forEach((room) => {
-    const floor = room.floor || 1;
-    if (!grouped[floor]) grouped[floor] = [];
-    grouped[floor].push(room);
-  });
+function roomFloor(room) {
+  const raw = room.floor ?? room.floor_number ?? room.floorNumber ?? room.building_floor;
+  if (raw === undefined || raw === null || raw === "") return "";
+  const match = String(raw).match(/[123]/);
+  return match ? match[0] : String(raw);
+}
 
-  return Object.keys(grouped)
-    .sort((a, b) => Number(a) - Number(b))
-    .map((floor) => ({
-      floor: Number(floor),
-      rooms: grouped[floor]
-    }));
+function roomCapacity(room) {
+  return room.capacity ?? room.room_capacity ?? room.people_capacity ?? "ไม่ระบุ";
+}
+
+function roomDescription(room) {
+  const value = room.description ?? room.facilities ?? room.equipment ?? room.detail;
+  return Array.isArray(value) ? value.join(", ") : value || "ไม่มีรายละเอียดเพิ่มเติม";
+}
+
+function thaiDate(value) {
+  if (!value) return "เลือกวันที่ต้องการจอง";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "เลือกวันที่ต้องการจอง";
+  return new Intl.DateTimeFormat("th-TH", { day: "numeric", month: "long", year: "numeric" }).format(date);
+}
+
+function timeToMinutes(value) {
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function getTimelineSegment(booking) {
+  const openMinutes = 9 * 60;
+  const closeMinutes = 16 * 60;
+  const startMinutes = timeToMinutes(String(booking.start_time || "09:00").slice(0, 5));
+  const endMinutes = timeToMinutes(String(booking.end_time || "09:00").slice(0, 5));
+  const start = Math.max(openMinutes, Math.min(startMinutes, closeMinutes));
+  const end = Math.max(start, Math.min(endMinutes, closeMinutes));
+
+  return {
+    left: `${((start - openMinutes) / (closeMinutes - openMinutes)) * 100}%`,
+    width: `${((end - start) / (closeMinutes - openMinutes)) * 100}%`
+  };
 }
 
 function Homepage() {
-
   const navigate = useNavigate();
-
   const [user, setUser] = useState(null);
-
-  const [bookings, setBookings] =
-    useState([]);
-
-  const [showProfile, setShowProfile] =
-    useState(false);
+  const [rooms, setRooms] = useState([]);
+  const [roomStatus, setRoomStatus] = useState({ message: "กำลังโหลดข้อมูลห้อง...", type: "info" });
+  const [floor, setFloor] = useState("all");
+  const [dateFilter, setDateFilter] = useState(localISODate());
+  const [search, setSearch] = useState("");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [bookingDate, setBookingDate] = useState(localISODate());
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("10:00");
+  const [purpose, setPurpose] = useState("");
+  const [bookingError, setBookingError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-
-    const userData =
-      localStorage.getItem("user");
-
-    if (!userData) {
-
-      navigate("/");
-
-      return;
-
+    try {
+      const stored = JSON.parse(localStorage.getItem(STORAGE_USER_KEY) || "null");
+      if (!stored) {
+        navigate("/", { replace: true });
+        return;
+      }
+      setUser(stored);
+    } catch (error) {
+      console.error("Unable to read stored user:", error);
+      localStorage.removeItem(STORAGE_USER_KEY);
+      localStorage.removeItem(STORAGE_TOKEN_KEY);
+      navigate("/", { replace: true });
     }
-
-    const parsedUser =
-      JSON.parse(userData);
-
-    setUser(parsedUser);
-
-    axios
-      .get(
-        "http://localhost:5001/api/rooms"
-      )
-
-      .then((response) => {
-
-        setBookings(
-          response.data.rooms || []
-        );
-
-      })
-
-      .catch((error) => {
-
-        console.log(error);
-
-      });
-
   }, [navigate]);
 
-  // logout
+  useEffect(() => {
+    if (!user) return undefined;
+    const controller = new AbortController();
+    const headers = {};
+    const token = localStorage.getItem(STORAGE_TOKEN_KEY);
+    if (token) headers.Authorization = `Bearer ${token}`;
 
-  const logout = () => {
+    const date = dateFilter || localISODate();
+    fetch(`${API_BASE_URL}/api/rooms?date=${encodeURIComponent(date)}`, { headers, signal: controller.signal })
+      .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      })
+      .then(data => {
+        const loadedRooms = Array.isArray(data) ? data : Array.isArray(data.rooms) ? data.rooms : [];
+        setRooms(loadedRooms);
+        setRoomStatus(loadedRooms.length
+          ? { message: "เลือกวันที่และตรวจสอบรายละเอียดก่อนทำการจอง", type: "info" }
+          : { message: "ไม่พบข้อมูลห้อง", type: "empty" });
+      })
+      .catch(error => {
+        if (error.name === "AbortError") return;
+        console.error("Unable to load rooms:", error);
+        setRoomStatus({
+          message: "ไม่สามารถโหลดข้อมูลห้องได้ กรุณาตรวจสอบว่า Backend เปิดอยู่ที่ http://localhost:5001 และ API /api/rooms ใช้งานได้",
+          type: "error"
+        });
+      });
 
-    localStorage.removeItem(
-      "token"
+    return () => controller.abort();
+  }, [user, dateFilter, refreshRooms]);
+
+  const filteredRooms = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase("th-TH");
+    return rooms.filter(room =>
+      (floor === "all" || roomFloor(room) === floor) &&
+      roomName(room).toLocaleLowerCase("th-TH").includes(query)
     );
+  }, [rooms, floor, search]);
 
-    localStorage.removeItem(
-      "user"
-    );
+  const groupedRooms = useMemo(() => {
+    const grouped = new Map();
+    filteredRooms.forEach(room => {
+      const key = roomFloor(room) || "อื่น ๆ";
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(room);
+    });
+    return [...grouped.entries()].sort(([a], [b]) => {
+      if (a === "อื่น ๆ") return 1;
+      if (b === "อื่น ๆ") return -1;
+      return Number(a) - Number(b);
+    });
+  }, [filteredRooms]);
 
-    navigate("/");
-
-  };
-
-  if (!user) {
-
-    return <h1>Loading...</h1>;
-
+  function logout() {
+    localStorage.removeItem(STORAGE_TOKEN_KEY);
+    localStorage.removeItem(STORAGE_USER_KEY);
+    navigate("/", { replace: true });
   }
 
-  // ถ้ามีข้อมูลจริงจาก API ใช้ข้อมูลจริง (จัดกลุ่มตามชั้น)
-  // ถ้ายังไม่มี (API ยังไม่พร้อม/ยังไม่มี endpoint) ใช้ข้อมูลตัวอย่างแทน
-  const floorSections =
-    bookings.length > 0
-      ? groupRoomsByFloor(bookings)
-      : MOCK_ROOMS_BY_FLOOR;
+  function openBooking(room) {
+    setSelectedRoom(room);
+    setBookingDate(dateFilter || localISODate());
+    setStartTime("09:00");
+    setEndTime("10:00");
+    setPurpose("");
+    setBookingError("");
+  }
+
+  function closeBooking() {
+    setSelectedRoom(null);
+    setBookingError("");
+  }
+
+  async function submitBooking(event) {
+    event.preventDefault();
+    if (!user?.user_id || !selectedRoom) {
+      setBookingError("ไม่พบรหัสผู้ใช้ กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
+      return;
+    }
+    if (!bookingDate || bookingDate < localISODate()) {
+        setBookingError("ไม่สามารถจองวันที่ผ่านมาแล้วได้");
+        return;
+}
+
+    if (isWeekendDate(bookingDate)) {
+        setBookingError("ไม่สามารถจองห้องในวันเสาร์–อาทิตย์ได้ กรุณาเลือกวันจันทร์–ศุกร์");
+        return;
+}
+    const weekday = new Date(`${bookingDate}T00:00:00`).getDay();
+    if (weekday === 0 || weekday === 6) {
+      setBookingError("ระบบเปิดให้จองเฉพาะวันจันทร์–ศุกร์");
+      return;
+    }
+    const duration = timeToMinutes(endTime) - timeToMinutes(startTime);
+    if (duration < 60 || duration > 120) {
+      setBookingError("ระยะเวลาจองต้องอยู่ระหว่าง 1–2 ชั่วโมง");
+      return;
+    }
+
+    setSaving(true);
+    setBookingError("");
+    try {
+      const headers = { "Content-Type": "application/json" };
+      const token = localStorage.getItem(STORAGE_TOKEN_KEY);
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const response = await fetch(`${API_BASE_URL}/api/bookings`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          user_id: user.user_id,
+          room: roomName(selectedRoom),
+          date: bookingDate,
+          start_time: startTime,
+          end_time: endTime,
+          purpose: purpose.trim()
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.message || result.error || "จองห้องไม่สำเร็จ กรุณาลองใหม่");
+     setDateFilter(bookingDate);
+     setRefreshRooms(value => value + 1);
+     closeBooking();
+     window.alert(result.message || "จองห้องสำเร็จ");
+    } catch (error) {
+      console.error("Booking error:", error);
+      setBookingError(error.message || "เกิดข้อผิดพลาดในการจอง กรุณาลองใหม่");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!user) return <main className="page-content"><p>กำลังตรวจสอบการเข้าสู่ระบบ...</p></main>;
 
   return (
+    <div className="booking-app">
+      <header className="site-header">
+        <a className="brand" href="/homepage" aria-label="Booking CSTU Home">
+          <img className="brand-logo" src={`${process.env.PUBLIC_URL}/logo.png`} alt="Booking CSTU logo" />
+          <span className="brand-copy"><strong>CSTU ROOM BOOKING</strong><small>BOOKING CSTU ROOM</small></span>
+        </a>
+        <nav className="main-nav" aria-label="เมนูหลัก">
+          <button type="button" className="nav-link active" onClick={() => navigate("/homepage")}>HOME</button>
+          <button type="button" className="nav-link" onClick={() => navigate("/mybooking")}>MY BOOKING</button>
+          <a href={`${process.env.PUBLIC_URL}/Guide.html`} className="nav-link">GUIDE</a>
+          <a href={`${process.env.PUBLIC_URL}/Rule.html`} className="nav-link">RULE</a>
+          <a href={`${process.env.PUBLIC_URL}/review.html`} className="nav-link">REVIEW</a>
+          <div className="profile-menu">
+            <button type="button" id="profileButton" className="profile-button" aria-expanded={profileOpen} aria-controls="profilePopup" onClick={() => setProfileOpen(value => !value)}>
+              <span>PROFILE</span>
+              <span className="chevron" aria-hidden="true">⌄</span>
+            </button>
+            {profileOpen && (
+              <section id="profilePopup" className="profile-popup">
+                <h2>ข้อมูลผู้ใช้</h2>
+                <dl className="profile-details">
+                  <div><dt>ชื่อ</dt><dd>{user.displayname_th || user.displayname_en || "-"}</dd></div>
+                  <div><dt>Username</dt><dd>{user.username || "-"}</dd></div>
+                  <div><dt>คณะ</dt><dd>{user.faculty || "-"}</dd></div>
+                  <div><dt>สาขา</dt><dd>{user.department || user.major || "-"}</dd></div>
+                  <div><dt>Email</dt><dd>{user.email || "-"}</dd></div>
+                </dl>
+                <button type="button" id="logoutButton" className="button button-danger button-full" onClick={logout}>LOGOUT</button>
+              </section>
+            )}
+          </div>
+        </nav>
+      </header>
 
-    <div className="homepage">
+      <main className="page-content">
+        <section className="page-heading"><div><p className="eyebrow">THAMMASAT UNIVERSITY</p><h1>จองห้อง</h1><p className="page-subtitle">อาคารบรรยายเรียนรวม 2 | มหาวิทยาลัยธรรมศาสตร์ ศูนย์รังสิต </p></div><div className="heading-mark" aria-hidden="true">BOOK<br />YOUR<br />ROOM</div></section>
 
-      {/* TOPBAR */}
+        <section
+          className="filter-panel"
+          aria-label="ค้นหาและกรองห้อง"
+        >
+          <div className="filter-field">
+            <label htmlFor="floorFilter">ชั้น</label>
+            <select
+              id="floorFilter"
+              value={floor}
+              onChange={event => {
+                const value = event.target.value;
+                setBookingDate(value);
 
-      <nav className="topbar">
+                if (isWeekendDate(value)) {
+                setBookingError("ไม่สามารถจองห้องในวันเสาร์–อาทิตย์ได้ กรุณาเลือกวันจันทร์–ศุกร์");
+                } else {
+                setBookingError("");
+                }
+}}
+            >
+              <option value="all">ทั้งหมด</option>
+              <option value="1">ชั้น 1</option>
+              <option value="2">ชั้น 2</option>
+              <option value="3">ชั้น 3</option>
+            </select>
+          </div>
 
-        <div className="nav-menu">
+          <div className="filter-field date-filter-field">
+            <label htmlFor="bookingDateFilter">วันที่ต้องการจอง</label>
+            <input
+              id="bookingDateFilter"
+              type="date"
+              min={localISODate()}
+              value={dateFilter}
+              onChange={event => setDateFilter(event.target.value)}
+            />
+          </div>
 
-          <span>
-            HOME
-          </span>
-
-          <span>
-            MY BOOKING
-          </span>
-
-          <span>
-            GUIDE
-          </span>
-
-          <span>
-            RULE
-          </span>
-
-          <span>
-            REVIEW
-          </span>
-
-        </div>
-
-        <div className="nav-right">
+          <div className="filter-field search-field">
+            <label htmlFor="roomSearch">ค้นหาห้อง</label>
+            <input
+              id="roomSearch"
+              type="search"
+              placeholder="พิมพ์ชื่อห้อง..."
+              autoComplete="off"
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+            />
+          </div>
 
           <button
-            className="profile-btn"
-            onClick={() =>
-              setShowProfile(
-                !showProfile
-              )
-            }
+            type="button"
+            id="clearFiltersButton"
+            className="button button-light clear-button"
+            onClick={() => {
+              setFloor("all");
+              setDateFilter(localISODate());
+              setSearch("");
+            }}
           >
-
-            PROFILE 👤
-
+            ล้างตัวกรอง
           </button>
+        </section>
 
-          {/* PROFILE POPUP */}
-
-          {showProfile && (
-
-            <div className="profile-popup">
-
-              <h2>
-                PROFILE
-              </h2>
-
-              <hr />
-
-              <p>
-
-                <strong>
-                  ชื่อ:
-                </strong>
-
-                {" "}
-
-                {user.displayname_th}
-
-              </p>
-
-              <p>
-
-                <strong>
-                  เลขนักศึกษา:
-                </strong>
-
-                {" "}
-
-                {user.username}
-
-              </p>
-
-              <p>
-
-                <strong>
-                  คณะ:
-                </strong>
-
-                {" "}
-
-                {user.faculty}
-
-              </p>
-
-              <p>
-
-                <strong>
-                  สาขา:
-                </strong>
-
-                {" "}
-
-                {user.department}
-
-              </p>
-
-              <p>
-
-                <strong>
-                  Email:
-                </strong>
-
-                {" "}
-
-                {user.email}
-
-              </p>
-
-              <div className="profile-buttons">
-
-                <button
-                  className="close-btn"
-                  onClick={() =>
-                    setShowProfile(false)
-                  }
-                >
-
-                  ปิด
-
-                </button>
-
-                <button
-                  className="logout-btn"
-                  onClick={logout}
-                >
-
-                  Logout
-
-                </button>
-
+        <div className="results-heading"><div><h2>ห้องทั้งหมด</h2><p id="roomCount" className="muted-text">พบ {filteredRooms.length} ห้อง</p></div></div>
+        <div id="statusMessage" className={`status-message status-${roomStatus.type}`} role="status" aria-live="polite">{roomStatus.message}</div>
+        <div id="roomList" className="room-list">
+          {groupedRooms.map(([floorNumber, floorRooms]) => (
+            <section className="floor-section" key={floorNumber}>
+              <div className="floor-heading">
+                <h3>{floorNumber === "อื่น ๆ" ? "ห้องอื่น ๆ" : `ชั้น ${floorNumber}`}</h3>
               </div>
-
-            </div>
-
-          )}
-
-        </div>
-
-      </nav>
-
-      {/* HERO */}
-
-      <div className="hero-section">
-
-        <div className="hero-left">
-
-          <img
-            src="../logo.png"
-            alt="logo"
-            className="hero-logo"
-          />
-
-        </div>
-
-        <div className="hero-line"></div>
-
-        <div className="hero-right">
-
-          <h1>
-            BOOKING
-            <br />
-            ROOM
-          </h1>
-
-        </div>
-
-      </div>
-
-      {/* CONTENT */}
-
-      <div className="content-section">
-
-        {/* FILTER */}
-
-        <div className="filter-section">
-
-          <div className="filter-group">
-
-            <label>
-              ชั้น
-            </label>
-
-            <select>
-
-              <option>
-                1
-              </option>
-
-              <option>
-                2
-              </option>
-
-              <option>
-                3
-              </option>
-
-            </select>
-
-          </div>
-
-          <div className="filter-group">
-
-            <label>
-              วันที่
-            </label>
-
-            <input
-              type="date"
-            />
-
-          </div>
-
-          <div className="filter-group">
-
-            <label>
-              ค้นหาห้อง
-            </label>
-
-            <input
-              type="text"
-              placeholder="ค้นหาห้อง"
-            />
-
-          </div>
-
-        </div>
-
-        {/* ROOM LIST แบ่งตามชั้น */}
-
-        {floorSections.map((section) => (
-
-          <div
-            className="floor-container"
-            key={section.floor}
-          >
-
-            <div className="floor-tab">
-              ชั้น {section.floor}
-            </div>
-
-            <div className="floor-rooms">
-
-              {section.rooms.map((room) => (
-
-                <div
-                  className="room-card-dark"
-                  key={room.id}
-                >
-
-                  <div className="room-image">
-
-                    รูปห้อง
-
-                  </div>
-
-                  <div className="room-info">
-
-                    <div className="room-header">
-
-                      <h2>
-                        {room.room_name ||
-                          "ชื่อห้อง"}
-                      </h2>
-
-                      <span className="capacity-badge">
-                        {room.capacity_label ||
-                          "ความจุ:"}
-                      </span>
-
-                    </div>
-
-                    {room.description && (
-
-                      <p className="room-desc">
-
-                        {room.description
-                          .split("\n")
-                          .map((line, i) => (
-                            <span key={i}>
-                              {line}
-                              <br />
-                            </span>
-                          ))}
-
-                      </p>
-
-                    )}
-
-                    <div className="time-slot">
-
-                      <div className="time-bar">
-
+              <div className="room-grid">
+                {floorRooms.map(room => (
+                  <article className="room-card" key={room.room_id || room.id || room.room_code}>
+                    <div className="room-card-top"><span className="room-floor-tag">{floorNumber === "อื่น ๆ" ? "ไม่ระบุชั้น" : `ชั้น ${floorNumber}`}</span></div>
+                    <h4 className="room-name">{roomName(room)}</h4>
+                    <p className="room-capacity">รองรับ {roomCapacity(room)} คน</p>
+                    <p className="room-description">{roomDescription(room)}</p>
+                    <div className="room-hours">
+                      <div className="room-hours-heading"><span>เวลาให้บริการ</span><strong>09:00–16:00 น.</strong></div>
+                      <div className="room-timeline" role="img" aria-label={`${room.bookings?.length || 0} ช่วงเวลาที่ถูกจอง วันที่ ${thaiDate(dateFilter || localISODate())}`}>
+                        {(room.bookings || []).map((booking, index) => (
+                          <span
+                            key={`${booking.start_time}-${booking.end_time}-${index}`}
+                            className="room-timeline-booked"
+                            style={getTimelineSegment(booking)}
+                            title={`ถูกจอง ${booking.start_time}–${booking.end_time}`}
+                          />
+                        ))}
                       </div>
-
-                      <div className="time-row">
-
-                        <span>9:00</span>
-                        <span>10:00</span>
-                        <span>11:00</span>
-                        <span>12:00</span>
-                        <span>13:00</span>
-                        <span>14:00</span>
-                        <span>15:00</span>
-                        <span>16:00</span>
-
+                      <div className="room-timeline-labels" aria-hidden="true">
+                        {["09", "10", "11", "12", "13", "14", "15", "16"].map(hour => <span key={hour}>{hour}:00</span>)}
                       </div>
-
+                      <div className="room-timeline-legend"><span className="room-timeline-legend-dot" />ช่วงเวลาที่ถูกจอง</div>
                     </div>
+                    <button type="button" className="button button-primary button-full book-room-button" onClick={() => openBooking(room)}>จองห้องนี้ <span aria-hidden="true">→</span></button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+        <footer className="site-footer"><p>BOOKING CSTU ROOM · Thammasat University</p></footer>
+      </main>
 
-                  </div>
-
-                </div>
-
-              ))}
-
-            </div>
-
-          </div>
-
-        ))}
-
-      </div>
-
+      {selectedRoom && (
+        <div id="bookingModal" className="modal-backdrop" role="presentation" onClick={event => { if (event.target === event.currentTarget) closeBooking(); }}>
+          <section className="booking-modal" role="dialog" aria-modal="true" aria-labelledby="bookingModalTitle">
+            <button type="button" id="closeBookingModal" className="modal-close" aria-label="ปิดหน้าต่าง" onClick={closeBooking}>×</button>
+            <p className="eyebrow">BOOKING DETAILS</p><h2 id="bookingModalTitle">จองห้อง</h2><p id="selectedRoomName" className="selected-room-name">{roomName(selectedRoom)}</p>
+            <form id="bookingForm" onSubmit={submitBooking}>
+              <div className="form-field"><label htmlFor="bookingUserName">ชื่อผู้จอง</label><input id="bookingUserName" type="text" value={user.displayname_th || user.displayname_en || user.name || ""} readOnly /></div>
+              <div className="form-field"><label htmlFor="bookingUsername">Username</label><input id="bookingUsername" type="text" value={user.username || user.student_id || user.user_id || ""} readOnly /></div>
+              <div className="form-field"><label htmlFor="bookingDate">วันที่จอง</label><input id="bookingDate" name="date" type="date" min={localISODate()} value={bookingDate} onChange={event => setBookingDate(event.target.value)} required /></div>
+              <div className="form-row"><div className="form-field"><label htmlFor="startTime">เวลาเริ่มต้น</label><select id="startTime" name="start_time" value={startTime} onChange={event => { const next = event.target.value; setStartTime(next); const firstAllowed = makeBookingTimes().find(option => timeToMinutes(option) - timeToMinutes(next) >= 60); if (firstAllowed) setEndTime(firstAllowed); }} required>{makeBookingTimes().filter(time => timeToMinutes(time) < 16 * 60).map(time => <option key={time} value={time}>{time} น.</option>)}</select></div><div className="form-field"><label htmlFor="endTime">เวลาสิ้นสุด</label><select id="endTime" name="end_time" value={endTime} onChange={event => setEndTime(event.target.value)} required>{makeBookingTimes().filter(time => { const length = timeToMinutes(time) - timeToMinutes(startTime); return length >= 60 && length <= 120; }).map(time => <option key={time} value={time}>{time} น.</option>)}</select></div></div>
+              <div className="form-field"><label htmlFor="bookingPurpose">วัตถุประสงค์ (ถ้ามี)</label><textarea id="bookingPurpose" name="purpose" rows="3" maxLength="500" placeholder="ระบุวัตถุประสงค์การใช้ห้อง" value={purpose} onChange={event => setPurpose(event.target.value)} /></div>
+              <p className="form-note">เปิดให้บริการในวันจันทร์–ศุกร์ เวลา 09:00–16:00 น. โดยสามารถใช้งานได้มากสุด 2 ชั่วโมง และน้อยสุด 1 ชั่วโมง ต่อรอบการจอง</p>
+              {bookingError ? <p id="bookingError" className="form-error" role="alert">{bookingError}</p> : null}
+              <div className="modal-actions"><button type="button" id="cancelBookingButton" className="button button-light" onClick={closeBooking}>ยกเลิก</button><button type="submit" id="submitBookingButton" className="button button-primary" disabled={saving}>{saving ? "กำลังบันทึก..." : "ยืนยันการจอง"}</button></div>
+            </form>
+          </section>
+        </div>
+      )}
     </div>
-
   );
+}
 
+function makeBookingTimes() {
+  return Array.from({ length: 15 }, (_, index) => {
+  const value = 9 * 60 + index * 15;
+    return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+  });
 }
 
 export default Homepage;

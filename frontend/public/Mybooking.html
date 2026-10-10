@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="รายการจองห้องของฉัน - CSTU Room Booking">
+  <title>My Booking | CSTU Room Booking</title>
+
+  <!-- ใช้ CSS หลักร่วมกับหน้า Home -->
+  <link rel="stylesheet" href="./css/homepage.css">
+
+  <!-- CSS เฉพาะหน้า My Booking -->
+  <link rel="stylesheet" href="./css/mybooking.css">
+
+  <script src="./js/homepage.js" defer></script>
+  <script src="./js/mybooking.js" defer></script>
+</head>
+
+<body>
+  <header class="site-header">
+    <a class="brand" href="./homepage.html"
+       aria-label="Booking CSTU Home">
+      <img class="brand-logo" src="./logo.png"
+           alt="Booking CSTU logo"
+           onerror="this.hidden=true">
+
+      <span class="brand-copy">
+        <strong>CSTU ROOM BOOKING</strong>
+        <small>BOOKING CSTU ROOM</small>
+      </span>
+    </a>
+
+
+<nav class="main-nav" aria-label="เมนูหลัก">
+  <a href="./homepage.html" class="nav-link">HOME</a>
+  <a href="/mybooking" class="nav-link">MY BOOKING</a>
+  <a href="./Guide.html" class="nav-link">GUIDE</a>
+  <a href="./Rule.html" class="nav-link">RULE</a>
+  <a href="./review.html" class="nav-link">REVIEW</a>
+
+  <button type="button" id="profileButton"
+          class="profile-button"
+          aria-expanded="false"
+          aria-controls="profilePopup">
+    <span>PROFILE</span>
+    <span class="chevron" aria-hidden="true">⌄</span>
+  </button>
+</nav>
+
+
+    <section id="profilePopup" class="profile-popup" hidden>
+      <h2>ข้อมูลผู้ใช้</h2>
+
+      <dl class="profile-details">
+        <div><dt>ชื่อ</dt><dd id="profileName">-</dd></div>
+        <div><dt>Username</dt><dd id="profileUsername">-</dd></div>
+        <div><dt>คณะ</dt><dd id="profileFaculty">-</dd></div>
+        <div><dt>สาขา</dt><dd id="profileDepartment">-</dd></div>
+        <div><dt>Email</dt><dd id="profileEmail">-</dd></div>
+      </dl>
+
+      <button type="button" id="logoutButton"
+              class="button button-danger button-full">
+        LOGOUT
+      </button>
+    </section>
+  </header>
+
+  <main class="mybooking-page">
+    <section class="mybooking-heading">
+      <div>
+        <p class="mybooking-eyebrow">BOOKING CSTU ROOM</p>
+        <h1>Your Bookings</h1>
+        <p class="mybooking-subtitle">
+          ตรวจสอบรายการจองห้องประชุมของคุณ
+        </p>
+      </div>
+
+      <div class="mybooking-heading-mark" aria-hidden="true">
+        MY<br>BOOKING
+      </div>
+    </section>
+
+    <section id="bookingList" class="mybooking-list"
+             aria-label="รายการจองของฉัน">
+
+      <!-- ตัวอย่างรายการจอง -->
+      <article class="mybooking-card">
+        <h2>107 ห้องปฏิบัติการคอมพิวเตอร์</h2>
+
+        <div class="mybooking-details">
+          <div>
+            <strong>วันที่:</strong>
+            <time datetime="2026-10-12">12/10/2026</time>
+          </div>
+
+          <div>
+            <strong>สถานะ:</strong> รอดำเนินการ
+          </div>
+
+          <div>
+            <strong>เวลา:</strong> 09:45 - 11:30
+          </div>
+
+          <div>
+            <strong>หมายเลขการจอง:</strong> 5
+          </div>
+        </div>
+
+        <hr class="mybooking-divider">
+
+        <div class="mybooking-card-bottom">
+          <span class="mybooking-status">รอดำเนินการ</span>
+
+          <button class="mybooking-cancel"
+                  type="button"
+                  data-cancel-booking="5">
+            ยกเลิกการจอง
+          </button>
+        </div>
+      </article>
+
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>BOOKING CSTU ROOM · Thammasat University</p>
+  </footer>
+</body>
+</html>

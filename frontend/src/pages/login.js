@@ -85,7 +85,7 @@ function Login() {
         <div className="logo-wrapper">
 
           <img
-            src="../logo.png"
+            src={`${process.env.PUBLIC_URL}/logo.png`}
             alt="logo"
             className="logo"
           />
