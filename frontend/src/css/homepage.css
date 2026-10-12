@@ -929,3 +929,86 @@ body.modal-open {
   border-radius: 3px;
   z-index: 2;
 }
+.time-select-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.time-select-group select {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+}
+
+.time-select-group span {
+  font-weight: 600;
+  font-size: 18px;
+}
+/* Booking popup: choose hour first, then quarter-hour minute */
+.time-select-row {
+  align-items: flex-start;
+}
+
+.time-select-group {
+  min-width: 0;
+}
+
+.time-select-group > label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.time-select-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.time-select-control {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 5px;
+}
+
+.time-select-control > label {
+  color: #71809a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.time-select-control > select {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 9px 32px 9px 12px;
+  border: 1px solid #d9e1ee;
+  border-radius: 9px;
+  background-color: #fff;
+  color: #283954;
+  font: inherit;
+  cursor: pointer;
+}
+
+.time-select-control > select:focus {
+  border-color: #3d65a5;
+  outline: 3px solid rgb(61 101 165 / 14%);
+}
+
+.time-select-control > select:disabled {
+  background: #f3f5f9;
+  color: #929bad;
+  cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+  .time-select-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .time-select-pair {
+    gap: 8px;
+  }
+}

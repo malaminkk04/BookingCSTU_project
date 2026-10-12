@@ -1,257 +1,783 @@
+
 require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
-const axios = require("axios");
 
-const { upsertUser, getUserByEmail, addBooking, getBookingsByUser, getBookingsByDate, getRooms, deleteBooking } = require('./db');
+const {
+  db,
+  upsertUser,
+  getUserById,
+  addBooking,
+  getBookingsByUser,
+  getBookingsByDate,
+  getRooms,
+  deleteBooking,
+  checkInBooking,
+  updateBookingStatuses
+} = require("./db");
 
 const app = express();
+const PORT = Number(process.env.PORT || 5001);
+
+const TU_AUTH_URL = "https://restapi.tu.ac.th/api/v1/auth/Ad/verify";
+const DEMO_TEACHER_USERNAME = "teacher_demo";
+const DEMO_TEACHER_PASSWORD = "TeacherDemo123!";
 
 app.use(cors());
-
 app.use(express.json());
-app.get("/health", (req, res) => {
-  return res.status(200).json({
-    status: "ok",
-    message: "CS Room Booking backend is running"
+
+function isDevelopment() {
+  return process.env.NODE_ENV !== "production";
+}
+
+function isAllowedFaculty(faculty) {
+  const normalized = String(faculty || "")
+    .trim()
+    .replace(/\s+/g, "")
+    .toLowerCase();
+
+  return (
+    normalized === "คณะวิทยาศาสตร์และเทคโนโลยี" ||
+    normalized === "facultyofscienceandtechnology"
+  );
+}
+
+function getUserIdentifier(body = {}) {
+  return String(
+    body.identifier ||
+    body.username ||
+    body.tu_id ||
+    body.usernameOrEmail ||
+    ""
+  ).trim();
+}
+
+function getUserRole(accountType) {
+  const type = String(accountType || "").trim().toLowerCase();
+  return type === "student" ? "student" : "teacher";
+}
+
+function createToken(userId, username) {
+  return `bookingcstu-${userId}-${Buffer.from(String(username)).toString("hex")}`;
+}
+
+function getBangkokDate() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date());
+
+  const values = Object.fromEntries(
+    parts.map(part => [part.type, part.value])
+  );
+
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+/*
+ * รองรับการล็อกอินด้วยอีเมล
+ * ค้นหา username หรือ tu_id จากอีเมลที่บันทึกไว้ในฐานข้อมูล
+ */
+function resolveLoginIdentifier(identifier) {
+  const value = String(identifier || "").trim();
+
+  if (!value.includes("@")) {
+    return Promise.resolve(value);
+  }
+
+  return new Promise((resolve, reject) => {
+    db.query(
+      `SELECT username, tu_id
+       FROM users
+       WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+       LIMIT 1`,
+      [value],
+      (error, rows) => {
+        if (error) {
+          return reject(error);
+        }
+
+        if (!rows || rows.length === 0) {
+          return reject(
+            new Error("No account found for this email address")
+          );
+        }
+
+        const account = rows[0];
+        const loginUsername = account.username || account.tu_id;
+
+        if (!loginUsername) {
+          return reject(
+            new Error("No username found for this email address")
+          );
+        }
+
+        resolve(String(loginUsername).trim());
+      }
+    );
   });
-});
+}
+
+function saveUser(userData) {
+  return new Promise((resolve, reject) => {
+    upsertUser(userData, (error, user) => {
+      if (error) {
+        return reject(error);
+      }
+
+      if (!user || !user.user_id) {
+        return reject(
+          new Error("Unable to save or load user account from database")
+        );
+      }
+
+      resolve(user);
+    });
+  });
+}
+
+function findUserById(userId) {
+  return new Promise((resolve, reject) => {
+    getUserById(userId, (error, user) => {
+      if (error) {
+        return reject(error);
+      }
+
+      resolve(user);
+    });
+  });
+}
+
+function findRooms(role) {
+  return new Promise((resolve, reject) => {
+    getRooms(role, (error, rooms) => {
+      if (error) {
+        return reject(error);
+      }
+
+      resolve(rooms);
+    });
+  });
+}
+
+function findBookingsByDate(date) {
+  return new Promise((resolve, reject) => {
+    getBookingsByDate(date, (error, bookings) => {
+      if (error) {
+        return reject(error);
+      }
+
+      resolve(bookings);
+    });
+  });
+}
+
+function findBookingsByUser(userId) {
+  return new Promise((resolve, reject) => {
+    getBookingsByUser(userId, (error, bookings) => {
+      if (error) {
+        return reject(error);
+      }
+
+      resolve(bookings);
+    });
+  });
+}
+
+function createBooking(booking) {
+  return new Promise((resolve, reject) => {
+    addBooking(booking, (error, bookingId) => {
+      if (error) {
+        return reject(error);
+      }
+
+      resolve(bookingId);
+    });
+  });
+}
+
+function cancelBooking(bookingId, userId) {
+  return new Promise((resolve, reject) => {
+    deleteBooking(bookingId, userId, (error, affectedRows) => {
+      if (error) {
+        return reject(error);
+      }
+
+      resolve(affectedRows);
+    });
+  });
+}
 
 async function verifyWithTuApi(identifier, password) {
-  const identifiers = [identifier];
-  if (identifier.includes('@')) {
-    identifiers.push(identifier.split('@')[0]);
+  const applicationKey = process.env.TU_API_KEY;
+
+  if (!applicationKey) {
+    throw new Error("TU_API_KEY is missing from the backend .env file");
   }
 
-  let lastError;
-  for (const candidate of identifiers) {
-    try {
-      const response = await axios.post(
-        "https://restapi.tu.ac.th/api/v1/auth/Ad/verify",
-        {
-          UserName: candidate,
-          PassWord: password
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "Application-Key": process.env.TU_API_KEY
-          }
-        }
-      );
+  const response = await fetch(TU_AUTH_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Application-Key": applicationKey
+    },
+    body: JSON.stringify({
+      UserName: identifier,
+      PassWord: password
+    })
+  });
 
-      if (response.data?.status === true) {
-        return response.data;
-      }
+  const result = await response.json().catch(() => ({}));
 
-      lastError = new Error('TU authentication rejected the credentials');
-    } catch (error) {
-      lastError = error;
-    }
+  if (!response.ok) {
+    throw new Error(
+      result.message ||
+      result.Message ||
+      "TU authentication failed"
+    );
   }
 
-  throw lastError || new Error('TU authentication failed');
+  const data = result.data || result.Data || result;
+
+  const success =
+    result.status === true ||
+    result.success === true ||
+    result.status === "success" ||
+    result.status === "SUCCESS" ||
+    Boolean(data.username || data.username_en || data.username_th);
+
+  if (!success) {
+    throw new Error(
+      result.message ||
+      result.Message ||
+      "Invalid TU username or password"
+    );
+  }
+
+  return data;
 }
 
-function findUsernameForEmail(email) {
-  return new Promise((resolve, reject) => {
-    getUserByEmail(email, (error, user) => {
-      if (error) return reject(error);
-      resolve(user?.username);
-    });
+function sendLoginSuccess(res, user) {
+  return res.json({
+    success: true,
+    message: "Login successful",
+    token: createToken(user.user_id, user.username),
+    user: {
+      user_id: user.user_id,
+      username: user.username,
+      tu_id: user.tu_id,
+      email: user.email,
+      name: user.name,
+      displayname_th: user.displayname_th,
+      faculty: user.faculty,
+      major: user.major,
+      role: user.role,
+      no_show_count: user.no_show_count || 0,
+      suspended_until: user.suspended_until || null
+    }
   });
 }
+
+app.get("/health", (req, res) => {
+  res.json({
+    success: true,
+    message: "BookingCSTU backend is running",
+    port: PORT
+  });
+});
 
 app.post("/login", async (req, res) => {
-
   try {
+    const identifier = getUserIdentifier(req.body);
 
-    const { identifier, username, password } = req.body;
-    const loginIdentifier = (identifier || username || '').trim();
+    const password = String(
+      req.body.password || req.body.PassWord || ""
+    );
 
-    if (!loginIdentifier || !password) {
+    if (!identifier || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Identifier and password are required'
+        message: "Please enter your username and password"
       });
     }
 
-    // Log login attempt (do not log passwords)
-    console.log(`Login attempt for identifier=${loginIdentifier}`);
+    const isDemoTeacher =
+      isDevelopment() &&
+      identifier.toLowerCase() ===
+        DEMO_TEACHER_USERNAME.toLowerCase();
 
-    let authIdentifier = loginIdentifier;
-    if (loginIdentifier.includes('@')) {
-      authIdentifier = await findUsernameForEmail(loginIdentifier);
-      if (!authIdentifier) {
+    if (isDemoTeacher) {
+      if (password !== DEMO_TEACHER_PASSWORD) {
         return res.status(401).json({
           success: false,
-          message: 'Log in once with your student ID before using your TU email'
+          message: "Invalid demo teacher password"
         });
       }
-    }
 
-    const data = await verifyWithTuApi(authIdentifier, password);
-    // Log response summary from TU API
-    console.log('TU API response status:', data.status);
-    console.log('TU API response (trim):',
-      JSON.stringify(data).slice(0, 400)
-    );
-
-    if (data.status === true) {
-
-      // Save user to database
-      const userData = {
-        username: data.username || loginIdentifier,
-        student_id: data.studentID || data.username,
-        email: data.email || '',
-        displayname_th: data.displayname_th || data.displayname_en || data.username,
-        faculty: data.faculty_name_th || data.faculty_name_en || '',
-        major: data.branch_name_th || data.branch_name_en || ''
+      const teacherData = {
+        username: DEMO_TEACHER_USERNAME,
+        tu_id: "TEACHER001",
+        email: "teacher.demo@example.com",
+        displayname_th: "อาจารย์ตัวอย่าง",
+        faculty: "คณะวิทยาศาสตร์และเทคโนโลยี",
+        major: "Computer Science",
+        role: "teacher"
       };
 
-      upsertUser(userData, (err, user_id) => {
-        if (err) {
-          console.error('Error saving user:', err);
-          return res.status(500).json({ success: false, message: 'Database error' });
-        }
+      const savedUser = await saveUser(teacherData);
 
-        return res.json({
-          success: true,
-          token: "demo-token",
-          user: { ...data, user_id }
-        });
+      return sendLoginSuccess(res, {
+        ...savedUser,
+        username: teacherData.username,
+        tu_id: teacherData.tu_id,
+        email: teacherData.email,
+        name: teacherData.displayname_th,
+        displayname_th: teacherData.displayname_th,
+        faculty: teacherData.faculty,
+        major: teacherData.major,
+        role: teacherData.role
       });
-      return;
-
     }
 
-    return res.status(401).json({
-      success: false
-    });
+    /*
+     * ถ้ากรอกอีเมล จะค้นหา username/tu_id จากฐานข้อมูลก่อน
+     * ถ้ากรอกรหัสนักศึกษา จะใช้ค่าที่กรอกได้เลย
+     */
+    const loginIdentifier = await resolveLoginIdentifier(identifier);
 
-  } catch (error) {
-
-    console.log(
-      error.response?.data
+    const data = await verifyWithTuApi(
+      loginIdentifier,
+      password
     );
 
-    return res.status(500).json({
-      success: false
-    });
+    const faculty =
+      data.faculty ||
+      data.Faculty ||
+      data.faculty_name ||
+      data.facultyName ||
+      "";
 
-  }
-
-});
-
-// Booking endpoints
-app.get("/api/rooms", (req, res) => {
-  getRooms((err, rooms) => {
-    if (err) {
-      console.error('Error fetching rooms:', err);
-      return res.status(500).json({ success: false, message: 'Database error' });
+    if (!isAllowedFaculty(faculty)) {
+      return res.status(403).json({
+        success: false,
+        message: "อนุญาตเฉพาะผู้ใช้คณะวิทยาศาสตร์และเทคโนโลยี"
+      });
     }
 
-    const requestedDate = req.query.date;
-    const date = /^\d{4}-\d{2}-\d{2}$/.test(requestedDate || "")
-      ? requestedDate
-      : new Date().toISOString().slice(0, 10);
+    const username = String(
+      data.username ||
+      data.username_en ||
+      data.username_th ||
+      loginIdentifier
+    ).trim();
 
-    getBookingsByDate(date, (bookingError, bookings) => {
-      if (bookingError) {
-        console.error('Error fetching room booking intervals:', bookingError);
-        return res.status(500).json({ success: false, message: 'Database error' });
+    const tuId = String(
+      data.id ||
+      data.tu_id ||
+      data.username ||
+      loginIdentifier
+    ).trim();
+
+    const accountType =
+      data.type ||
+      data.account_type ||
+      data.accountType ||
+      data.user_type ||
+      data.userType ||
+      data.status ||
+      "";
+
+    const role = getUserRole(accountType);
+
+    const userData = {
+      username,
+      tu_id: tuId,
+      email: data.email || data.email_address || null,
+      displayname_th:
+        data.displayname_th ||
+        data.displayname ||
+        data.name_th ||
+        data.name ||
+        username,
+      faculty,
+      major:
+        data.department ||
+        data.department_name ||
+        data.major ||
+        null,
+      role
+    };
+
+    const savedUser = await saveUser(userData);
+
+    return sendLoginSuccess(res, {
+      ...savedUser,
+      username: userData.username,
+      tu_id: userData.tu_id,
+      email: userData.email || savedUser.email,
+      name: userData.displayname_th,
+      displayname_th: userData.displayname_th,
+      faculty: userData.faculty,
+      major: userData.major,
+      role: userData.role
+    });
+  } catch (error) {
+    console.error("Login error:", error.message);
+
+    return res.status(401).json({
+      success: false,
+      message: "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบบัญชีผู้ใช้และรหัสผ่าน"
+    });
+  }
+});
+
+app.get("/api/rooms", async (req, res) => {
+  try {
+    const userId = String(req.headers["x-user-id"] || "");
+
+    if (!/^\d+$/.test(userId)) {
+      return res.status(401).json({
+        success: false,
+        message: "Missing or invalid user ID"
+      });
+    }
+
+    const user = await findUserById(userId);
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found. Please log in again."
+      });
+    }
+
+    const role = String(user.role || "").toLowerCase();
+
+    if (!["student", "teacher"].includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Invalid user role"
+      });
+    }
+
+    const requestedDate = String(req.query.date || "");
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+    const date = datePattern.test(requestedDate)
+      ? requestedDate
+      : getBangkokDate();
+
+    const [rooms, bookings] = await Promise.all([
+      findRooms(role),
+      findBookingsByDate(date)
+    ]);
+
+    const formattedRooms = rooms.map(room => {
+      const roomCode = String(room.room_code || "").toLowerCase();
+      const roomName = String(room.room_name || "").toLowerCase();
+
+      const roomBookings = bookings.filter(booking => {
+        if (Number(booking.room_id) === Number(room.room_id)) {
+          return true;
+        }
+
+        const bookingRoom = String(booking.room || "").toLowerCase();
+
+        return bookingRoom === roomCode || bookingRoom === roomName;
+      });
+
+      return {
+        ...room,
+        id: room.room_id,
+        room_id: room.room_id,
+        room_code: room.room_code,
+        room_name: room.room_name,
+        floor: room.floor,
+        capacity: room.capacity,
+        facilities: room.facilities,
+        room_type: room.room_type,
+        is_available: room.is_available,
+        bookings: roomBookings
+      };
+    });
+
+    return res.json({
+      success: true,
+      date,
+      role,
+      total: formattedRooms.length,
+      rooms: formattedRooms
+    });
+  } catch (error) {
+    console.error("Get rooms error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "ไม่สามารถโหลดข้อมูลห้องได้"
+    });
+  }
+});
+
+app.post("/api/bookings", async (req, res) => {
+  try {
+    const headerUserId = req.headers["x-user-id"];
+    const bodyUserId = req.body.user_id;
+
+    if (!headerUserId || !/^\d+$/.test(String(headerUserId))) {
+      return res.status(401).json({
+        success: false,
+        message: "กรุณาเข้าสู่ระบบใหม่"
+      });
+    }
+
+    const userId = String(headerUserId);
+
+    if (bodyUserId && String(bodyUserId) !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "User ID mismatch"
+      });
+    }
+
+    const user = await findUserById(userId);
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    const { room, date, start_time, end_time, purpose } = req.body;
+
+    if (!room || !date || !start_time || !end_time) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide room, date, start time and end time"
+      });
+    }
+
+    const bookingId = await createBooking({
+      user_id: Number(userId),
+      room,
+      date,
+      start_time,
+      end_time,
+      purpose
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Booking created successfully",
+      booking_id: bookingId,
+      status: "reserved"
+    });
+  } catch (error) {
+    console.error("Create booking error:", error.message);
+
+    return res.status(400).json({
+      success: false,
+      message: error.message || "ไม่สามารถจองห้องได้"
+    });
+  }
+});
+
+app.get("/api/bookings/:userId", async (req, res) => {
+  try {
+    const requestedUserId = String(req.params.userId);
+    const headerUserId = String(req.headers["x-user-id"] || "");
+
+    if (!/^\d+$/.test(requestedUserId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID"
+      });
+    }
+
+    if (!/^\d+$/.test(headerUserId)) {
+      return res.status(401).json({
+        success: false,
+        message: "กรุณาเข้าสู่ระบบใหม่"
+      });
+    }
+
+    if (headerUserId !== requestedUserId) {
+      return res.status(403).json({
+        success: false,
+        message: "User ID mismatch"
+      });
+    }
+
+    const user = await findUserById(requestedUserId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    const bookings = await findBookingsByUser(requestedUserId);
+
+    return res.json({
+      success: true,
+      bookings
+    });
+  } catch (error) {
+    console.error("Get user bookings error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "ไม่สามารถโหลดรายการจองได้"
+    });
+  }
+});
+
+app.post("/api/bookings/:bookingId/check-in", async (req, res) => {
+  try {
+    const bookingId = String(req.params.bookingId);
+    const userId = String(req.headers["x-user-id"] || "");
+
+    if (!/^\d+$/.test(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: "รหัสรายการจองไม่ถูกต้อง"
+      });
+    }
+
+    if (!/^\d+$/.test(userId)) {
+      return res.status(401).json({
+        success: false,
+        message: "กรุณาเข้าสู่ระบบใหม่"
+      });
+    }
+
+    const user = await findUserById(userId);
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "ไม่พบบัญชีผู้ใช้งาน"
+      });
+    }
+
+    await checkInBooking(Number(bookingId), Number(userId));
+
+    return res.json({
+      success: true,
+      message: "เช็กอินสำเร็จ",
+      status: "checked_in"
+    });
+  } catch (error) {
+    console.error("Check-in error:", error.message);
+
+    return res.status(400).json({
+      success: false,
+      message: error.message || "ไม่สามารถเช็กอินได้"
+    });
+  }
+});
+
+app.delete("/api/bookings/:bookingId", async (req, res) => {
+  try {
+    const bookingId = String(req.params.bookingId);
+    const userId = String(req.headers["x-user-id"] || "");
+
+    if (!/^\d+$/.test(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking ID"
+      });
+    }
+
+    if (!/^\d+$/.test(userId)) {
+      return res.status(401).json({
+        success: false,
+        message: "กรุณาเข้าสู่ระบบใหม่"
+      });
+    }
+
+    const user = await findUserById(userId);
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "ไม่พบบัญชีผู้ใช้งาน"
+      });
+    }
+
+    const affectedRows = await cancelBooking(
+      Number(bookingId),
+      Number(userId)
+    );
+
+    if (!affectedRows) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "ยกเลิกไม่ได้ รายการอาจถูกยกเลิกไปแล้ว เช็กอินแล้ว หรือเหลือเวลาไม่ถึง 30 นาทีก่อนเริ่มจอง"
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Booking cancelled successfully",
+      status: "cancelled"
+    });
+  } catch (error) {
+    console.error("Cancel booking error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "ไม่สามารถยกเลิกการจองได้"
+    });
+  }
+});
+
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "API endpoint not found"
+  });
+});
+
+async function startServer() {
+  try {
+    await new Promise((resolve, reject) => {
+      db.getConnection((error, connection) => {
+        if (error) {
+          return reject(error);
+        }
+
+        connection.release();
+        resolve();
+      });
+    });
+
+    await updateBookingStatuses();
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Health check: http://localhost:${PORT}/health`);
+
+      if (isDevelopment()) {
+        console.log("Development mode enabled");
+        console.log(`Demo teacher username: ${DEMO_TEACHER_USERNAME}`);
       }
 
-      const bookingsByRoom = new Map();
-      (bookings || []).forEach(booking => {
-        const key = String(booking.room).trim().toLocaleLowerCase();
-        if (!bookingsByRoom.has(key)) bookingsByRoom.set(key, []);
-        bookingsByRoom.get(key).push({
-          start_time: booking.start_time,
-          end_time: booking.end_time
+      setInterval(() => {
+        updateBookingStatuses().catch(error => {
+          console.error("Booking status update error:", error.message);
         });
-      });
-
-      const formattedRooms = (rooms || []).map(room => {
-        const codesAndNames = [room.room_code, room.room_name]
-          .filter(Boolean)
-          .map(value => String(value).trim().toLocaleLowerCase());
-        const roomBookings = codesAndNames.flatMap(key => bookingsByRoom.get(key) || []);
-        const uniqueBookings = [...new Map(roomBookings.map(item => [
-          `${item.start_time}-${item.end_time}`,
-          item
-        ])).values()];
-
-        return {
-          ...room,
-          capacity_label: `ความจุ: ${room.capacity} คน`,
-          equipment: room.facilities ? room.facilities.split(/,\s*/) : [],
-          bookings: uniqueBookings
-        };
-      });
-
-      return res.json({ success: true, date, rooms: formattedRooms });
+      }, 60 * 1000);
     });
-  });
-});
-
-app.post("/api/bookings", (req, res) => {
-  const { user_id, room, date, start_time, end_time, purpose } = req.body;
-
-  if (!user_id || !room || !date || !start_time || !end_time) {
-    return res.status(400).json({ success: false, message: "Missing required fields" });
+  } catch (error) {
+    console.error("Could not start backend:", error.message);
+    process.exit(1);
   }
+}
 
-  const booking = { user_id, room, date, start_time, end_time, purpose: purpose || '' };
-
-  addBooking(booking, (err, booking_id) => {
-    if (err) {
-      console.error('Error adding booking:', err);
-      return res.status(500).json({ success: false, message: 'Database error' });
-    }
-
-    return res.json({ success: true, booking_id });
-  });
-});
-
-app.get("/api/bookings/:userId", (req, res) => {
-  const { userId } = req.params;
-
-  getBookingsByUser(userId, (err, bookings) => {
-    if (err) {
-      console.error('Error fetching bookings:', err);
-      return res.status(500).json({ success: false, message: 'Database error' });
-    }
-
-    return res.json({ success: true, bookings: bookings || [] });
-  });
-});
-
-app.delete("/api/bookings/:bookingId", (req, res) => {
-  const { bookingId } = req.params;
-  const userId = req.headers["x-user-id"];
-
-  if (!userId) {
-    return res.status(400).json({ success: false, message: "Missing user ID" });
-  }
-
-  deleteBooking(bookingId, userId, (err, changes) => {
-    if (err) {
-      console.error('Error deleting booking:', err);
-      return res.status(500).json({ success: false, message: 'Database error' });
-    }
-
-    if (!changes) {
-      return res.status(404).json({ success: false, message: 'Booking not found' });
-    }
-
-    return res.json({ success: true });
-  });
-});
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server Running on port ${PORT}`);
-
-});
+startServer();
