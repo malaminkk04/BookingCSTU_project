@@ -258,9 +258,9 @@ function upsertUser(user, callback) {
     const displaynameTh = user.displayname_th || user.displayName || name;
     const faculty = user.faculty || null;
     const major = user.major || user.department || null;
-    const role = String(user.role || "student").toLowerCase() === "student"
-      ? "student"
-      : "teacher";
+    const role = ["student", "teacher", "admin"].includes(user.role)
+  ? user.role
+  : "student";
 
     const [result] = await promisePool.execute(
       `INSERT INTO users

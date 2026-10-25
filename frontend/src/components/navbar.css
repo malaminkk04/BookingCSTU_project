@@ -1,0 +1,319 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap");
+
+.nb-header {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 82px;
+  padding: 0 clamp(20px, 5vw, 76px);
+  background: #ffffff;
+  border-bottom: 1px solid #e5e9f0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.nb-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: max-content;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.nb-brand-logo {
+  width: 43px;
+  height: 43px;
+  object-fit: contain;
+}
+
+.nb-brand-copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.nb-brand-copy strong {
+  color: #273c70;
+  font-family: Inter, sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.045em;
+}
+
+.nb-brand-copy small {
+  color: #788397;
+  font-family: Inter, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  margin-top: 5px;
+}
+
+/* Navigation: ทุกปุ่มอยู่แถวเดียวกัน PROFILE ต่อจาก REVIEW */
+
+.nb-nav {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: clamp(12px, 2.2vw, 32px);
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.nb-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  margin: 0;
+  padding: 0 13px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #4c5a6e;
+  font-family: Inter, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.nb-link:hover,
+.nb-link:focus-visible,
+.nb-link.active {
+  color: #e77b36;
+  background: transparent;
+}
+
+/* Profile: ไม่มีกรอบ ไม่มีพื้นหลัง ไม่มี padding สีขาว */
+
+.nb-profile-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.nb-profile-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  width: auto;
+  margin: 0;
+  padding: 0 16px;
+  border: 1px solid #d3e0f7;
+  border-radius: 10px;
+  outline: none;
+  box-shadow: none;
+  background: #e8f0fe;
+  color: #273c70;
+  font-family: Inter, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.nb-profile-button:hover,
+.nb-profile-button:focus-visible,
+.nb-profile-button[aria-expanded="true"] {
+  background: #d6e4fc;
+  border-color: #b9d0f5;
+  color: #1d2f5c;
+  outline: none;
+  box-shadow: none;
+}
+
+
+.nb-chevron {
+  display: inline-block;
+  color: inherit;
+  font-size: 15px;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.nb-profile-button[aria-expanded="true"] .nb-chevron {
+  transform: rotate(180deg);
+}
+
+/* Profile popup (กล่องนี้จะมีพื้นหลังขาวเฉพาะตอนกดเปิดเท่านั้น) */
+
+.nb-profile-popup {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  box-sizing: border-box;
+  width: min(320px, calc(100vw - 32px));
+  padding: 22px;
+  border: 1px solid #e5e9f0;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 12px 36px rgba(29, 48, 82, 0.16);
+  z-index: 100;
+  color: #344054;
+  font-family: "IBM Plex Sans Thai", sans-serif;
+  letter-spacing: normal;
+  white-space: normal;
+  text-align: left;
+}
+
+.nb-profile-popup h2 {
+  margin: 0 0 15px;
+  color: #273c70;
+  font-family: "IBM Plex Sans Thai", sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.nb-profile-details {
+  margin: 0 0 18px;
+  padding: 0;
+}
+
+.nb-profile-details div {
+  padding: 8px 0;
+  border-bottom: 1px solid #edf0f5;
+}
+
+.nb-profile-details dt {
+  color: #788397;
+  font-size: 11px;
+}
+
+.nb-profile-details dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.nb-logout {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 1px solid #f3d1d3;
+  border-radius: 9px;
+  background: #fff2f2;
+  color: #bd333b;
+  font-family: "IBM Plex Sans Thai", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nb-logout:hover {
+  background: #ffe6e7;
+}
+
+/* Responsive */
+
+@media (max-width: 1000px) {
+  .nb-header {
+    padding-inline: 24px;
+    gap: 18px;
+  }
+
+  .nb-nav {
+    gap: 12px;
+  }
+
+  .nb-link {
+    padding-inline: 8px;
+    font-size: 10px;
+  }
+
+  .nb-profile-button {
+    font-size: 10px;
+  }
+
+  .nb-brand-copy strong {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 700px) {
+  .nb-header {
+    position: relative;
+    padding: 15px 18px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .nb-nav {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+  }
+
+  .nb-link {
+    min-height: 36px;
+    padding: 0;
+    font-size: 10px;
+  }
+
+  .nb-profile-button {
+    min-height: 36px;
+  }
+
+  .nb-profile-popup {
+    top: calc(100% + 8px);
+    right: 0;
+  }
+}
+
+@media (max-width: 380px) {
+  .nb-brand-logo {
+    width: 36px;
+    height: 36px;
+  }
+
+  .nb-brand-copy strong {
+    font-size: 12px;
+  }
+
+  .nb-brand-copy small {
+    font-size: 9px;
+  }
+
+  .nb-nav {
+    gap: 4px 10px;
+  }
+}

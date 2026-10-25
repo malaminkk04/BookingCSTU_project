@@ -1,8 +1,8 @@
-
 require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const crypto = require("crypto");
 
 const {
   db,
@@ -21,8 +21,14 @@ const app = express();
 const PORT = Number(process.env.PORT || 5001);
 
 const TU_AUTH_URL = "https://restapi.tu.ac.th/api/v1/auth/Ad/verify";
+
 const DEMO_TEACHER_USERNAME = "teacher_demo";
 const DEMO_TEACHER_PASSWORD = "TeacherDemo123!";
+
+const DEMO_ADMIN_USERNAME = "admin_demo";
+const DEMO_ADMIN_PASSWORD = "AdminDemo123!";
+
+const sessions = new Map();
 
 app.use(cors());
 app.use(express.json());
@@ -58,8 +64,64 @@ function getUserRole(accountType) {
   return type === "student" ? "student" : "teacher";
 }
 
-function createToken(userId, username) {
-  return `bookingcstu-${userId}-${Buffer.from(String(username)).toString("hex")}`;
+function createToken(user) {
+  const token = crypto.randomBytes(32).toString("hex");
+
+  sessions.set(token, {
+    userId: Number(user.user_id),
+    accessLevel: String(user.access_level || "user"),
+    expiresAt: Date.now() + 8 * 60 * 60 * 1000
+  });
+
+  return token;
+}
+
+function getSession(req) {
+  const authorization = String(req.headers.authorization || "");
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+
+  if (!match) {
+    return null;
+  }
+
+  const token = match[1].trim();
+  const session = sessions.get(token);
+
+  if (!session) {
+    return null;
+  }
+
+  if (session.expiresAt <= Date.now()) {
+    sessions.delete(token);
+    return null;
+  }
+
+  return session;
+}
+
+function authenticateSession(req, res, next) {
+  const session = getSession(req);
+
+  if (!session) {
+    return res.status(401).json({
+      success: false,
+      message: "กรุณาเข้าสู่ระบบใหม่"
+    });
+  }
+
+  req.session = session;
+  next();
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.session || req.session.accessLevel !== "admin") {
+    return res.status(403).json({
+      success: false,
+      message: "คุณไม่มีสิทธิ์เข้าถึงส่วนผู้ดูแลระบบ"
+    });
+  }
+
+  next();
 }
 
 function getBangkokDate() {
@@ -77,10 +139,6 @@ function getBangkokDate() {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
-/*
- * รองรับการล็อกอินด้วยอีเมล
- * ค้นหา username หรือ tu_id จากอีเมลที่บันทึกไว้ในฐานข้อมูล
- */
 function resolveLoginIdentifier(identifier) {
   const value = String(identifier || "").trim();
 
@@ -189,24 +247,24 @@ function findBookingsByUser(userId) {
 
 function createBooking(booking) {
   return new Promise((resolve, reject) => {
-    addBooking(booking, (error, bookingId) => {
+    addBooking(booking, (error, result) => {
       if (error) {
         return reject(error);
       }
 
-      resolve(bookingId);
+      resolve(result);
     });
   });
 }
 
 function cancelBooking(bookingId, userId) {
   return new Promise((resolve, reject) => {
-    deleteBooking(bookingId, userId, (error, affectedRows) => {
+    deleteBooking(bookingId, userId, (error, result) => {
       if (error) {
         return reject(error);
       }
 
-      resolve(affectedRows);
+      resolve(result);
     });
   });
 }
@@ -261,10 +319,12 @@ async function verifyWithTuApi(identifier, password) {
 }
 
 function sendLoginSuccess(res, user) {
+  const token = createToken(user);
+
   return res.json({
     success: true,
     message: "Login successful",
-    token: createToken(user.user_id, user.username),
+    token,
     user: {
       user_id: user.user_id,
       username: user.username,
@@ -275,6 +335,7 @@ function sendLoginSuccess(res, user) {
       faculty: user.faculty,
       major: user.major,
       role: user.role,
+      access_level: user.access_level || "user",
       no_show_count: user.no_show_count || 0,
       suspended_until: user.suspended_until || null
     }
@@ -292,7 +353,6 @@ app.get("/health", (req, res) => {
 app.post("/login", async (req, res) => {
   try {
     const identifier = getUserIdentifier(req.body);
-
     const password = String(
       req.body.password || req.body.PassWord || ""
     );
@@ -304,12 +364,77 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    const isDemoTeacher =
-      isDevelopment() &&
-      identifier.toLowerCase() ===
-        DEMO_TEACHER_USERNAME.toLowerCase();
+    const normalizedIdentifier = identifier.toLowerCase();
 
-    if (isDemoTeacher) {
+    if (
+      isDevelopment() &&
+      normalizedIdentifier === DEMO_ADMIN_USERNAME.toLowerCase()
+    ) {
+      if (password !== DEMO_ADMIN_PASSWORD) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid demo admin password"
+        });
+      }
+
+      const adminDb = db.promise();
+
+      await adminDb.execute(
+        `INSERT INTO users (
+          tu_id,
+          name,
+          email,
+          username,
+          displayname_th,
+          faculty,
+          major,
+          role,
+          access_level
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'teacher', 'admin')
+        ON DUPLICATE KEY UPDATE
+          name = VALUES(name),
+          email = VALUES(email),
+          username = VALUES(username),
+          displayname_th = VALUES(displayname_th),
+          faculty = VALUES(faculty),
+          major = VALUES(major),
+          role = 'admin',
+          access_level = 'admin'`,
+        [
+          "ADMINDEMO001",
+          "ผู้ดูแลระบบตัวอย่าง",
+          "admin.demo@example.com",
+          DEMO_ADMIN_USERNAME,
+          "ผู้ดูแลระบบตัวอย่าง",
+          "คณะวิทยาศาสตร์และเทคโนโลยี",
+          "Computer Science"
+        ]
+      );
+
+      const [rows] = await adminDb.execute(
+        `SELECT *
+         FROM users
+         WHERE tu_id = ?
+         LIMIT 1`,
+        ["ADMINDEMO001"]
+      );
+
+      if (!rows.length) {
+        throw new Error("Unable to create or load demo admin");
+      }
+
+      return sendLoginSuccess(res, {
+        ...rows[0],
+        role: "teacher",
+        access_level: "admin"
+      });
+    }
+
+    if (
+      isDevelopment() &&
+      normalizedIdentifier === DEMO_TEACHER_USERNAME.toLowerCase()
+    ) {
       if (password !== DEMO_TEACHER_PASSWORD) {
         return res.status(401).json({
           success: false,
@@ -338,20 +463,13 @@ app.post("/login", async (req, res) => {
         displayname_th: teacherData.displayname_th,
         faculty: teacherData.faculty,
         major: teacherData.major,
-        role: teacherData.role
+        role: teacherData.role,
+        access_level: savedUser.access_level || "user"
       });
     }
 
-    /*
-     * ถ้ากรอกอีเมล จะค้นหา username/tu_id จากฐานข้อมูลก่อน
-     * ถ้ากรอกรหัสนักศึกษา จะใช้ค่าที่กรอกได้เลย
-     */
     const loginIdentifier = await resolveLoginIdentifier(identifier);
-
-    const data = await verifyWithTuApi(
-      loginIdentifier,
-      password
-    );
+    const data = await verifyWithTuApi(loginIdentifier, password);
 
     const faculty =
       data.faculty ||
@@ -422,7 +540,8 @@ app.post("/login", async (req, res) => {
       displayname_th: userData.displayname_th,
       faculty: userData.faculty,
       major: userData.major,
-      role: userData.role
+      role: userData.role,
+      access_level: savedUser.access_level || "user"
     });
   } catch (error) {
     console.error("Login error:", error.message);
@@ -560,7 +679,7 @@ app.post("/api/bookings", async (req, res) => {
       });
     }
 
-    const bookingId = await createBooking({
+    const result = await createBooking({
       user_id: Number(userId),
       room,
       date,
@@ -572,7 +691,7 @@ app.post("/api/bookings", async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Booking created successfully",
-      booking_id: bookingId,
+      booking_id: result.booking_id || result,
       status: "reserved"
     });
   } catch (error) {
@@ -709,16 +828,15 @@ app.delete("/api/bookings/:bookingId", async (req, res) => {
       });
     }
 
-    const affectedRows = await cancelBooking(
+    const result = await cancelBooking(
       Number(bookingId),
       Number(userId)
     );
 
-    if (!affectedRows) {
+    if (!result) {
       return res.status(400).json({
         success: false,
-        message:
-          "ยกเลิกไม่ได้ รายการอาจถูกยกเลิกไปแล้ว เช็กอินแล้ว หรือเหลือเวลาไม่ถึง 30 นาทีก่อนเริ่มจอง"
+        message: "ไม่สามารถยกเลิกรายการจองนี้ได้"
       });
     }
 
@@ -730,9 +848,9 @@ app.delete("/api/bookings/:bookingId", async (req, res) => {
   } catch (error) {
     console.error("Cancel booking error:", error.message);
 
-    return res.status(500).json({
+    return res.status(400).json({
       success: false,
-      message: "ไม่สามารถยกเลิกการจองได้"
+      message: error.message || "ไม่สามารถยกเลิกการจองได้"
     });
   }
 });
@@ -766,6 +884,7 @@ async function startServer() {
       if (isDevelopment()) {
         console.log("Development mode enabled");
         console.log(`Demo teacher username: ${DEMO_TEACHER_USERNAME}`);
+        console.log(`Demo admin username: ${DEMO_ADMIN_USERNAME}`);
       }
 
       setInterval(() => {

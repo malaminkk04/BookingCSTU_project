@@ -476,3 +476,299 @@
     border-radius: 999px;
   }
 }
+
+/* ---------- สถานะ Using ---------- */
+
+.mybooking-page .booking-status.status-using {
+  background: #e8f0fe;
+  border-color: #d3e0f7;
+  color: #273c70;
+}
+
+.mybooking-page .status-using .status-dot {
+  background: #3972c5;
+}
+
+/* ---------- ส่วนประวัติการจอง ---------- */
+
+.mybooking-page .booking-history-section {
+  margin-top: 48px;
+}
+
+/* ---------- ปุ่มเขียนรีวิว ---------- */
+
+.mybooking-page .review-booking-button {
+  min-height: 42px;
+  padding: 0 20px;
+  border: 1px solid #e77b36;
+  border-radius: 9px;
+  background: #fff4ec;
+  color: #e77b36;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.mybooking-page .review-booking-button:hover:not(:disabled) {
+  background: #e77b36;
+  color: #ffffff;
+}
+
+.mybooking-page .review-booking-button:disabled {
+  border-color: #e5e9f0;
+  background: #f3f5f9;
+  color: #788397;
+  cursor: default;
+}
+
+/* ---------- ป๊อปอัพรีวิว ---------- */
+
+.mybooking-page .rv-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(18, 30, 53, 0.56);
+  overflow-y: auto;
+}
+
+.mybooking-page .rv-modal {
+  position: relative;
+  box-sizing: border-box;
+  width: min(100%, 560px);
+  max-height: calc(100vh - 44px);
+  padding: 32px;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+  overflow-y: auto;
+  color: #344054;
+  font-family: "IBM Plex Sans Thai", Inter, sans-serif;
+  text-align: left;
+}
+
+.mybooking-page .rv-modal *,
+.mybooking-page .rv-modal *::before,
+.mybooking-page .rv-modal *::after {
+  box-sizing: border-box;
+}
+
+.mybooking-page .rv-eyebrow {
+  margin: 0 0 8px;
+  color: #e77b36;
+  font-family: Inter, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+.mybooking-page .rv-modal h2 {
+  margin: 0;
+  color: #273c70;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.mybooking-page .rv-modal-description {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #788397;
+}
+
+.mybooking-page .rv-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #788397;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mybooking-page .rv-modal-close:hover {
+  background: #f0f3f8;
+  color: #273c70;
+}
+
+.mybooking-page .rv-modal form {
+  margin-top: 22px;
+}
+
+.mybooking-page .rv-field {
+  margin-bottom: 18px;
+}
+
+.mybooking-page .rv-field label,
+.mybooking-page .rv-rating-field legend {
+  display: block;
+  margin-bottom: 8px;
+  padding: 0;
+  color: #273c70;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mybooking-page .rv-field input,
+.mybooking-page .rv-field select,
+.mybooking-page .rv-field textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e5e9f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #344054;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.mybooking-page .rv-field textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.mybooking-page .rv-field input:focus,
+.mybooking-page .rv-field select:focus,
+.mybooking-page .rv-field textarea:focus {
+  border-color: #273c70;
+  box-shadow: 0 0 0 3px rgba(39, 60, 112, 0.1);
+}
+
+.mybooking-page .rv-rating-field {
+  margin: 0 0 18px;
+  padding: 0;
+  border: none;
+}
+
+.mybooking-page .rv-star-picker {
+  display: flex;
+  gap: 4px;
+}
+
+.mybooking-page .rv-star-picker button {
+  padding: 0 2px;
+  border: none;
+  background: transparent;
+  color: #d7dce5;
+  font-size: 32px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.mybooking-page .rv-star-picker button:hover {
+  transform: scale(1.1);
+}
+
+.mybooking-page .rv-star-picker button.selected {
+  color: #e77b36;
+}
+
+.mybooking-page .rv-field-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #788397;
+}
+
+.mybooking-page .rv-form-error {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid #f3d1d3;
+  border-radius: 9px;
+  background: #fff2f2;
+  color: #bd333b;
+  font-size: 12px;
+}
+
+.mybooking-page .rv-form-note {
+  margin: 0 0 16px;
+  font-size: 11px;
+  color: #788397;
+}
+
+.mybooking-page .rv-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.mybooking-page .rv-btn {
+  min-height: 44px;
+  padding: 0 22px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.mybooking-page .rv-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.mybooking-page .rv-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.mybooking-page .rv-btn-primary {
+  background: #e77b36;
+  border-color: #e77b36;
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(231, 123, 54, 0.25);
+}
+
+.mybooking-page .rv-btn-primary:hover:not(:disabled) {
+  background: #d96b26;
+}
+
+.mybooking-page .rv-btn-light {
+  background: #e8f0fe;
+  border-color: #d3e0f7;
+  color: #273c70;
+}
+
+.mybooking-page .rv-btn-light:hover:not(:disabled) {
+  background: #d6e4fc;
+}
+
+.mybooking-page .rv-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  z-index: 200;
+  max-width: calc(100vw - 32px);
+  padding: 13px 22px;
+  border-radius: 12px;
+  background: #273c70;
+  color: #ffffff;
+  font-size: 13px;
+  box-shadow: 0 12px 32px rgba(18, 30, 53, 0.3);
+  transform: translateX(-50%);
+}
+
+@media (max-width: 700px) {
+  .mybooking-page .rv-modal {
+    padding: 26px 20px;
+  }
+
+  .mybooking-page .rv-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .mybooking-page .rv-btn {
+    width: 100%;
+  }
+}

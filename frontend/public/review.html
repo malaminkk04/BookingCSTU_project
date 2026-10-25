@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review & Feedback | Booking CSTU</title>
+  <link rel="stylesheet" href="review.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="homepage.html">
+      <img src="logo.png" alt="CSTU Logo"
+           onerror="this.style.display='none'">
+      <span>BOOKING <b>CSTU</b></span>
+    </a>
+
+    <nav class="nav-links">
+      <a href="homepage.html">HOME</a>
+      <a href="Mybooking.html">MY BOOKING</a>
+      <a href="Guide.html">GUIDE</a>
+      <a href="Rule.html">RULE</a>
+      <a class="active" href="review.html">REVIEW</a>
+    </nav>
+
+    <button class="profile-button" id="profileButton" type="button">
+      <span class="profile-avatar" id="profileAvatar">U</span>
+      <span id="profileName">PROFILE</span>
+      <span>⌄</span>
+    </button>
+
+    <div class="profile-menu hidden" id="profileMenu">
+      <div class="profile-menu-info">
+        <strong id="profileFullName">ผู้ใช้งาน</strong>
+        <span id="profileEmail"></span>
+      </div>
+      <button id="logoutButton" type="button">ออกจากระบบ</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">BOOKING CSTU</p>
+        <h1>Review <span>&amp; Feedback</span></h1>
+        <p>แบ่งปันประสบการณ์ เพื่อช่วยพัฒนาระบบจองห้องให้ดียิ่งขึ้น</p>
+      </div>
+      <div class="hero-mark">R<span>&amp;</span>F</div>
+    </section>
+
+    <section class="page-content">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow blue">YOUR EXPERIENCE MATTERS</p>
+          <h2>รีวิวการใช้งานห้อง</h2>
+          <p class="muted">เลือกห้องเพื่อดูคะแนนและความคิดเห็นของผู้ใช้งาน</p>
+        </div>
+        <button class="primary-button" id="openReviewButton" type="button">
+          ＋ เขียนรีวิว / ข้อเสนอแนะ
+        </button>
+      </div>
+
+      <section class="room-picker panel">
+        <label for="roomSelect">เลือกห้องที่ต้องการดูรีวิว</label>
+        <div class="room-picker-controls">
+          <select id="roomSelect">
+            <option value="">กำลังโหลดรายชื่อห้อง...</option>
+          </select>
+          <button class="secondary-button" id="refreshButton" type="button">
+            รีเฟรชข้อมูล
+          </button>
+        </div>
+        <p id="roomHelp" class="helper-text">
+          คะแนนและรีวิวจะแสดงตามห้องที่เลือก
+        </p>
+      </section>
+
+      <section class="stats-grid">
+        <article class="stat-card panel">
+          <div class="stat-icon star-icon">★</div>
+          <div>
+            <p class="stat-label">คะแนนรีวิวเฉลี่ย</p>
+            <div class="stat-value">
+              <span id="averageRating">—</span>
+              <span class="out-of">/ 5</span>
+            </div>
+            <div id="averageStars" class="stars">☆☆☆☆☆</div>
+            <p class="stat-foot" id="reviewCountText">ยังไม่มีรีวิว</p>
+          </div>
+        </article>
+
+        <article class="stat-card panel">
+          <div class="stat-icon usage-icon">↗</div>
+          <div>
+            <p class="stat-label">จำนวนครั้งที่ห้องถูกใช้งาน</p>
+            <div class="stat-value" id="usageCount">—</div>
+            <p class="stat-foot">นับจากรายการจองที่ถือว่าใช้งานแล้ว</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="reviews-section">
+        <div class="reviews-toolbar">
+          <div>
+            <h2>ความคิดเห็นจากผู้ใช้งาน</h2>
+            <p class="muted" id="reviewsRoomLabel">เลือกห้องเพื่อดูรีวิว</p>
+          </div>
+
+          <div class="filter-controls">
+            <input
+              id="searchInput"
+              type="search"
+              placeholder="ค้นหาจากข้อความรีวิว..."
+              aria-label="ค้นหารีวิว"
+            >
+
+            <select id="ratingFilter" aria-label="กรองตามคะแนน">
+              <option value="all">ทุกคะแนน</option>
+              <option value="5">5 ดาว</option>
+              <option value="4">4 ดาว</option>
+              <option value="3">3 ดาว</option>
+              <option value="2">2 ดาว</option>
+              <option value="1">1 ดาว</option>
+            </select>
+
+            <select id="sortSelect" aria-label="เรียงลำดับรีวิว">
+              <option value="newest">ใหม่ล่าสุด</option>
+              <option value="highest">คะแนนสูงสุด</option>
+              <option value="lowest">คะแนนต่ำสุด</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="statusMessage" class="status-message hidden" role="status"></div>
+        <div id="reviewsList" class="reviews-list"></div>
+
+        <button
+          class="secondary-button load-more-button hidden"
+          id="loadMoreButton"
+          type="button"
+        >
+          แสดงรีวิวเพิ่มเติม
+        </button>
+      </section>
+
+      <section class="feedback-banner">
+        <div>
+          <p class="eyebrow">HELP US IMPROVE</p>
+          <h2>มีข้อเสนอแนะเพิ่มเติมไหม?</h2>
+          <p>แจ้งปัญหาหรือเสนอแนวทางปรับปรุงระบบได้ที่นี่</p>
+        </div>
+        <button class="light-button" id="openFeedbackButton" type="button">
+          ส่งข้อเสนอแนะ
+        </button>
+      </section>
+    </section>
+  </main>
+
+  <div
+    class="modal-backdrop hidden"
+    id="reviewModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modalTitle"
+  >
+    <div class="modal">
+      <button class="modal-close" id="closeModalButton" type="button"
+              aria-label="ปิด">×</button>
+
+      <p class="eyebrow blue">SHARE YOUR EXPERIENCE</p>
+      <h2 id="modalTitle">เขียนรีวิว / ข้อเสนอแนะ</h2>
+      <p class="muted">ความคิดเห็นของคุณช่วยให้เราพัฒนาระบบได้ดียิ่งขึ้น</p>
+
+      <form id="reviewForm">
+        <label for="formRoomSelect">ห้องที่ต้องการรีวิว <span class="required">*</span></label>
+        <select id="formRoomSelect" required>
+          <option value="">เลือกห้อง</option>
+        </select>
+
+        <label for="feedbackType">ประเภทความคิดเห็น <span class="required">*</span></label>
+        <select id="feedbackType" required>
+          <option value="review">รีวิวการใช้งาน</option>
+          <option value="suggestion">ข้อเสนอแนะ</option>
+          <option value="problem">แจ้งปัญหา</option>
+        </select>
+
+        <div id="ratingField">
+          <label>ให้คะแนนการใช้งาน <span class="required">*</span></label>
+          <div class="rating-input" id="ratingInput" role="radiogroup"
+               aria-label="ให้คะแนน">
+            <button type="button" class="rating-star" data-rating="1">★</button>
+            <button type="button" class="rating-star" data-rating="2">★</button>
+            <button type="button" class="rating-star" data-rating="3">★</button>
+            <button type="button" class="rating-star" data-rating="4">★</button>
+            <button type="button" class="rating-star" data-rating="5">★</button>
+          </div>
+          <p class="helper-text" id="ratingHelp">เลือกคะแนน 1–5 ดาว</p>
+        </div>
+
+        <label for="reviewMessage">รายละเอียด <span class="required">*</span></label>
+        <textarea
+          id="reviewMessage"
+          rows="5"
+          maxlength="2000"
+          placeholder="เล่าประสบการณ์หรืออธิบายข้อเสนอแนะของคุณ..."
+          required
+        ></textarea>
+
+        <div class="form-footer">
+          <span class="helper-text">หลีกเลี่ยงการใส่ข้อมูลส่วนตัวหรือรหัสผ่าน</span>
+          <button class="primary-button" id="submitReviewButton" type="submit">
+            ส่งความคิดเห็น
+          </button>
+        </div>
+        <p class="form-message" id="formMessage" role="status"></p>
+      </form>
+    </div>
+  </div>
+
+  <footer class="site-footer">Booking CSTU · Review &amp; Feedback</footer>
+
+  <script src="review.js"></script>
+</body>
+</html>
