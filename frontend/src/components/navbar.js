@@ -124,19 +124,21 @@ function Navbar() {
           MY BOOKING
         </button>
 
-        <a
-          href={`${process.env.PUBLIC_URL}/Guide.html`}
-          className="nb-link"
-        >
-          GUIDE
-        </a>
+                <button
+            type="button"
+            className={`nb-link ${isActive("/guide") ? "active" : ""}`}
+            onClick={() => navigate("/guide")}
+            >
+            GUIDE
+        </button>
 
-        <a
-          href={`${process.env.PUBLIC_URL}/Rule.html`}
-          className="nb-link"
-        >
-          RULE
-        </a>
+        <button
+            type="button"
+            className={`nb-link ${isActive("/rule") ? "active" : ""}`}
+            onClick={() => navigate("/rule")}
+            >
+            RULE
+        </button>
 
         <button
           type="button"

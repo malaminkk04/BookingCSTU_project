@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -20,7 +19,7 @@ const isAllowedFaculty = (faculty) => {
     "วิทยาศาสตร์และเทคโนโลยี",
     "faculty of science and technology",
     "science and technology",
-    "faculty of science & technology"
+    "faculty of science & technology",
   ].includes(normalized);
 };
 
@@ -43,13 +42,10 @@ function Login() {
     setLoading(true);
 
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/login`,
-        {
-          username: studentId.trim(),
-          password
-        }
-      );
+      const response = await axios.post(`${API_BASE_URL}/login`, {
+        username: studentId.trim(),
+        password,
+      });
 
       const data = response.data;
 
@@ -58,12 +54,24 @@ function Login() {
         return;
       }
 
+      const role = String(data.user.role || "")
+        .trim()
+        .toLowerCase();
+
+      const accessLevel = String(data.user.access_level || "")
+        .trim()
+        .toLowerCase();
+
+      const isAdmin = role === "admin" || accessLevel === "admin";
+
       const faculty =
         data.user.faculty ||
         data.user.faculty_name_th ||
         data.user.faculty_name_en ||
         "";
 
+      // อนุญาตเฉพาะคณะวิทยาศาสตร์และเทคโนโลยี
+      // บัญชี Admin Demo ก็กำหนดคณะนี้ไว้เช่นกัน
       if (!isAllowedFaculty(faculty)) {
         alert(
           "ขออภัย ระบบเปิดให้บริการเฉพาะนักศึกษาคณะวิทยาศาสตร์และเทคโนโลยี"
@@ -74,7 +82,12 @@ function Login() {
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      navigate("/homepage");
+      // แยกหน้า Admin ออกจาก Student และ Teacher
+      if (isAdmin) {
+        navigate("/admin", { replace: true });
+      } else {
+        navigate("/homepage", { replace: true });
+      }
     } catch (error) {
       console.error(
         "Login error:",
@@ -83,7 +96,7 @@ function Login() {
 
       alert(
         error.response?.data?.message ||
-        "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบ Username และ Password"
+          "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบ Username และ Password"
       );
     } finally {
       setLoading(false);
@@ -158,20 +171,14 @@ function Login() {
                 }
               >
                 {showPassword ? (
-                  <svg
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M3 3l18 18" />
                     <path d="M10.6 10.6a2 2 0 002.8 2.8" />
                     <path d="M9.9 5.2A11 11 0 0121 12a11.8 11.8 0 01-3.2 4.5" />
                     <path d="M6.2 6.2A12 12 0 003 12a11 11 0 0018 0" />
                   </svg>
                 ) : (
-                  <svg
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M3 12s3.3-7 9-7 9 7 9 7-3.3 7-9 7-9-7-9-7z" />
                     <circle cx="12" cy="12" r="3" />
                   </svg>
