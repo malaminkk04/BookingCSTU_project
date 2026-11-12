@@ -159,18 +159,29 @@ export default function AdminAccounts() {
     loadUsers();
   }, [loadUsers, refreshKey]);
 
-  const summary = useMemo(() => {
-    return {
-      total: users.length,
-      students: users.filter(
-        (user) => String(user.role).toLowerCase() === "student"
-      ).length,
-      teachers: users.filter(
-        (user) => String(user.role).toLowerCase() === "teacher"
-      ).length,
-      suspended: users.filter(isSuspended).length,
-    };
-  }, [users]);
+  
+const summary = useMemo(() => {
+  return {
+    total: users.filter(
+      (user) => String(user.role || "").toLowerCase() !== "admin"
+    ).length,
+
+    students: users.filter(
+      (user) => String(user.role || "").toLowerCase() === "student"
+    ).length,
+
+    teachers: users.filter(
+      (user) => String(user.role || "").toLowerCase() === "teacher"
+    ).length,
+
+    admins: users.filter(
+      (user) => String(user.role || "").toLowerCase() === "admin"
+    ).length,
+
+    suspended: users.filter(isSuspended).length,
+  };
+}, [users]);
+
 
   const filteredUsers = useMemo(() => {
     const keyword = search.trim().toLowerCase();

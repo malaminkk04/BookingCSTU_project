@@ -26,7 +26,7 @@ const CONFIG = {
       "รอดำเนินการ",
       "กำลังตรวจสอบ",
       "ดำเนินการแล้ว",
-      "ปิดเรื่อง",
+      "เสร็จสิ้น",
     ],
     fields: [
       ["id", "รหัส"],
@@ -142,7 +142,7 @@ function getStatusClass(status) {
   // สถานะที่ปิด ยกเลิก หรือซ่อนข้อมูล
   if (
     value.includes("ยกเลิก") ||
-    value.includes("ปิดเรื่อง") ||
+    value.includes("เสร็จสิ้น") ||
     value.includes("ซ่อน") ||
     value === "cancelled" ||
     value === "hidden" ||

@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../css/homepage.css";
@@ -10,16 +11,145 @@ const API_BASE_URL = "http://localhost:5001";
 const ROOMS_ENDPOINT = `${API_BASE_URL}/api/rooms`;
 const ROOM_PAGE_SIZE = 5;
 
+const FEEDBACK_TYPES = {
+  REVIEW: "รีวิว",
+  COMPLAINT: "ร้องเรียน",
+  REPAIR: "แจ้งปัญหา",
+};
+
 const INITIAL_REVIEWS = [
-  { id: 1, name: "Nicha.s", date: "2026-10-12", rating: 5, message: "ห้องสะอาด อุปกรณ์ครบ ระบบจองใช้งานได้ดีมากค่ะ การจองก็ไม่ยุ่งยาก", helpful: 12, verified: true, type: "รีวิวการใช้งาน" },
-  { id: 2, name: "Ploy_23", date: "2026-10-08", rating: 4, message: "ห้องโอเคค่ะ แต่เครื่องโปรเจกเตอร์เปิดไม่ติดตอนแรก มีเจ้าหน้าที่เข้ามาช่วยแก้ไขให้", helpful: 8, verified: true, type: "รีวิวการใช้งาน" },
-  { id: 3, name: "Beammm", date: "2026-10-03", rating: 4, message: "โต๊ะเก้าอี้ใช้งานได้ดี โดยรวมสะดวกมากค่ะ", helpful: 5, verified: true, type: "รีวิวการใช้งาน" },
-  { id: 4, name: "Karn", date: "2026-09-28", rating: 3, message: "เสียงในห้องบางจุดยังไม่ค่อยชัด แต่โดยรวมโอเคค่ะ", helpful: 3, verified: true, type: "ข้อเสนอแนะ" },
-  { id: 5, name: "Aomchaa", date: "2026-09-25", rating: 5, message: "การจองผ่านเว็บไซต์สะดวกมากค่ะ ได้ห้องตรงตามที่ต้องการ", helpful: 10, verified: true, type: "รีวิวการใช้งาน" },
-  { id: 6, name: "Nampetch", date: "2026-09-20", rating: 4, message: "แอร์เย็นดี แต่เสียงจากห้องข้าง ๆ ค่อนข้างดัง มีข้อเสนอแนะเพิ่มเติมค่ะ", helpful: 6, verified: true, type: "ข้อเสนอแนะ" },
-  { id: 7, name: "Tee_CSTU", date: "2026-09-15", rating: 5, message: "ขั้นตอนจองเข้าใจง่าย ตรวจสอบเวลาว่างก่อนจองได้ ช่วยวางแผนการใช้งานได้ดี", helpful: 4, verified: true, type: "รีวิวการใช้งาน" },
-  { id: 8, name: "Mild", date: "2026-09-11", rating: 2, message: "อยากให้มีรูปอุปกรณ์และรายละเอียดห้องให้ครบกว่านี้ก่อนกดจอง", helpful: 2, verified: true, type: "ข้อเสนอแนะ" },
+  {
+    id: 1,
+    name: "Nicha.s",
+    date: "2026-10-12",
+    rating: 5,
+    message: "ห้องสะอาด อุปกรณ์ครบ ระบบจองใช้งานได้ดีมากค่ะ การจองก็ไม่ยุ่งยาก",
+    helpful: 12,
+    verified: true,
+    type: "รีวิว",
+  },
+  {
+    id: 2,
+    name: "Ploy_23",
+    date: "2026-10-08",
+    rating: 4,
+    message: "ห้องโอเคค่ะ แต่เครื่องโปรเจกเตอร์เปิดไม่ติดตอนแรก มีเจ้าหน้าที่เข้ามาช่วยแก้ไขให้",
+    helpful: 8,
+    verified: true,
+    type: "รีวิว",
+  },
+  {
+    id: 3,
+    name: "Beammm",
+    date: "2026-10-03",
+    rating: 4,
+    message: "โต๊ะเก้าอี้ใช้งานได้ดี โดยรวมสะดวกมากค่ะ",
+    helpful: 5,
+    verified: true,
+    type: "รีวิว",
+  },
+  {
+    id: 4,
+    name: "Karn",
+    date: "2026-09-28",
+    rating: 3,
+    message: "เสียงในห้องบางจุดยังไม่ค่อยชัด แต่โดยรวมโอเคค่ะ",
+    helpful: 3,
+    verified: true,
+    type: "รีวิว",
+  },
+  {
+    id: 5,
+    name: "Aomchaa",
+    date: "2026-09-25",
+    rating: 5,
+    message: "การจองผ่านเว็บไซต์สะดวกมากค่ะ ได้ห้องตรงตามที่ต้องการ",
+    helpful: 10,
+    verified: true,
+    type: "รีวิว",
+  },
+  {
+    id: 6,
+    name: "Nampetch",
+    date: "2026-09-20",
+    rating: 4,
+    message: "แอร์เย็นดี แต่เสียงจากห้องข้าง ๆ ค่อนข้างดัง",
+    helpful: 6,
+    verified: true,
+    type: "รีวิว",
+  },
+  {
+    id: 7,
+    name: "Tee_CSTU",
+    date: "2026-09-15",
+    rating: 5,
+    message: "ขั้นตอนจองเข้าใจง่าย ตรวจสอบเวลาว่างก่อนจองได้ ช่วยวางแผนการใช้งานได้ดี",
+    helpful: 4,
+    verified: true,
+    type: "รีวิว",
+  },
+  {
+    id: 8,
+    name: "Mild",
+    date: "2026-09-11",
+    rating: 2,
+    message: "อยากให้มีรูปอุปกรณ์และรายละเอียดห้องให้ครบกว่านี้ก่อนกดจอง",
+    helpful: 2,
+    verified: true,
+    type: "รีวิว",
+  },
 ];
+
+// ข้อมูลจำลองสำหรับห้อง 301 ใช้แสดงเมื่อ API ยังไม่มีรีวิว
+const SAMPLE_ROOM_REVIEWS = {
+  "301": {
+    average_rating: 4.5,
+    review_count: 4,
+    usage_count: 28,
+    reviews: [
+      {
+        id: "sample-301-1",
+        name: "Ploy_23",
+        date: "2026-10-20",
+        rating: 5,
+        message:
+          "ห้องสะอาด บรรยากาศดี โต๊ะเก้าอี้พร้อมใช้งาน เหมาะกับการประชุมกลุ่มมากค่ะ",
+        type: "รีวิว",
+        verified: false,
+      },
+      {
+        id: "sample-301-2",
+        name: "Beam_CSTU",
+        date: "2026-10-18",
+        rating: 4,
+        message:
+          "ห้องค่อนข้างกว้าง ใช้งานสะดวก แต่สัญญาณ Wi-Fi บางช่วงไม่ค่อยเสถียร",
+        type: "รีวิว",
+        verified: false,
+      },
+      {
+        id: "sample-301-3",
+        name: "Nicha.s",
+        date: "2026-10-15",
+        rating: 5,
+        message:
+          "จองห้องง่ายมากค่ะ ห้องเงียบ เหมาะกับการทำโปรเจกต์และประชุมงานกลุ่ม",
+        type: "รีวิว",
+        verified: false,
+      },
+      {
+        id: "sample-301-4",
+        name: "Karn",
+        date: "2026-10-10",
+        rating: 4,
+        message:
+          "โดยรวมดีค่ะ อยากให้มีการตรวจสอบอุปกรณ์ก่อนเริ่มใช้งานทุกครั้ง",
+        type: "รีวิว",
+        verified: false,
+      },
+    ],
+  },
+};
 
 function readStoredUser() {
   try {
@@ -31,8 +161,12 @@ function readStoredUser() {
 }
 
 function formatThaiDate(value) {
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value || "-";
+  if (!value) return "-";
+
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) return value;
+
   return new Intl.DateTimeFormat("th-TH", {
     day: "numeric",
     month: "short",
@@ -63,6 +197,7 @@ function getBangkokDate() {
   }).formatToParts(new Date());
 
   const values = {};
+
   parts.forEach((part) => {
     if (part.type !== "literal") values[part.type] = part.value;
   });
@@ -77,6 +212,7 @@ function getRoomId(room) {
 
 function getRoomName(room) {
   const id = getRoomId(room);
+
   return (
     room?.room_name ??
     room?.name ??
@@ -132,8 +268,29 @@ function getRoomDescription(room) {
   return room?.description ?? room?.detail ?? room?.room_description ?? "";
 }
 
+
+function isRoom301(room) {
+  const roomName = String(
+    room?.room_name ??
+      room?.name ??
+      room?.roomName ??
+      room?.room_number ??
+      room?.room_no ??
+      ""
+  ).trim();
+
+  const roomId = String(room?.room_id ?? room?.id ?? "").trim();
+
+  return (
+    roomId === "301" ||
+    /(?:ห้องประชุม|ห้อง|room)?\s*301(?:\b|$)/i.test(roomName)
+  );
+}
+
+
 function Stars({ rating }) {
   const value = Math.min(5, Math.max(0, Math.round(Number(rating) || 0)));
+
   return (
     <>
       {"★".repeat(value)}
@@ -157,9 +314,7 @@ export default function Review() {
   const [modalOpen, setModalOpen] = useState(false);
   const [reviewerName, setReviewerName] = useState("");
   const [selectedRating, setSelectedRating] = useState(0);
-  const [feedbackType, setFeedbackType] = useState(
-    "รีวิวการใช้งานและข้อเสนอแนะ"
-  );
+  const [feedbackType, setFeedbackType] = useState(FEEDBACK_TYPES.REVIEW);
   const [reviewMessage, setReviewMessage] = useState("");
   const [feedbackError, setFeedbackError] = useState("");
   const [toast, setToast] = useState("");
@@ -190,7 +345,7 @@ export default function Review() {
     setReviewerName(getDisplayName(storedUser));
   }, [navigate]);
 
-  // โหลดห้องตามสิทธิ์ของผู้ใช้จาก API
+  // โหลดรายการห้องตามสิทธิ์ของผู้ใช้
   useEffect(() => {
     if (!user) {
       setRooms([]);
@@ -227,7 +382,11 @@ export default function Review() {
 
         const response = await fetch(
           `${ROOMS_ENDPOINT}?date=${encodeURIComponent(date)}`,
-          { method: "GET", headers, signal: controller.signal }
+          {
+            method: "GET",
+            headers,
+            signal: controller.signal,
+          }
         );
 
         const data = await response.json().catch(() => ({}));
@@ -248,7 +407,6 @@ export default function Review() {
 
         setRooms(list);
 
-        // ไม่เลือกห้องอัตโนมัติ ให้ผู้ใช้กด "ดูรีวิวห้องนี้" เอง
         setSelectedRoomId((current) =>
           list.some((room) => getRoomId(room) === current) ? current : ""
         );
@@ -269,7 +427,7 @@ export default function Review() {
     return () => controller.abort();
   }, [user]);
 
-  // โหลดคะแนนเฉลี่ย/จำนวนรีวิวของทุกห้อง เพื่อแสดงบนการ์ด
+  // โหลดคะแนนและจำนวนรีวิวของแต่ละห้อง
   useEffect(() => {
     if (rooms.length === 0) {
       setRoomStats({});
@@ -302,14 +460,50 @@ export default function Review() {
 
             if (!response.ok || data.success === false) return [id, null];
 
+            const apiReviews = Array.isArray(data.reviews)
+              ? data.reviews
+              : [];
+
+            // ใช้ข้อมูลตัวอย่างของห้อง 301 เฉพาะเมื่อ API ยังไม่มีรีวิว
+            const sampleData = isRoom301(room)
+              ? SAMPLE_ROOM_REVIEWS["301"]
+              : null;
+
+            if (apiReviews.length === 0 && sampleData) {
+              return [
+                id,
+                {
+                  average: sampleData.average_rating,
+                  count: sampleData.review_count,
+                },
+              ];
+            }
+
             return [
               id,
               {
                 average: Number(data.average_rating) || 0,
-                count: Number(data.review_count) || 0,
+                count: Number(data.review_count) || apiReviews.length,
               },
             ];
           } catch (error) {
+            if (error.name !== "AbortError") {
+              console.error(`Failed to load review stats for room ${id}:`, error);
+            }
+
+            // หากเรียก API ไม่สำเร็จ ให้แสดงตัวอย่างเฉพาะห้อง 301
+            if (isRoom301(room)) {
+              const sampleData = SAMPLE_ROOM_REVIEWS["301"];
+
+              return [
+                id,
+                {
+                  average: sampleData.average_rating,
+                  count: sampleData.review_count,
+                },
+              ];
+            }
+
             return [id, null];
           }
         })
@@ -317,7 +511,9 @@ export default function Review() {
 
       if (controller.signal.aborted) return;
 
-      setRoomStats(Object.fromEntries(entries.filter(([, value]) => value)));
+      setRoomStats(
+        Object.fromEntries(entries.filter(([, value]) => value !== null))
+      );
     }
 
     loadStats();
@@ -325,21 +521,38 @@ export default function Review() {
     return () => controller.abort();
   }, [rooms]);
 
-  function getRoomStat(room) {
-    const stat = roomStats[getRoomId(room)];
+  
+function getRoomStat(room) {
+  const stat = roomStats[getRoomId(room)];
+
+  if (stat) {
     return {
-      average: stat ? stat.average : Number(room?.average_rating) || 0,
-      count: stat ? stat.count : Number(room?.review_count) || 0,
+      average: stat.average,
+      count: stat.count,
     };
   }
 
-  // กรอง + ค้นหา + เรียงลำดับการ์ดห้อง
+  if (isRoom301(room)) {
+    return {
+      average: SAMPLE_ROOM_REVIEWS["301"].average_rating,
+      count: SAMPLE_ROOM_REVIEWS["301"].review_count,
+    };
+  }
+
+  return {
+    average: Number(room?.average_rating) || 0,
+    count: Number(room?.review_count) || 0,
+  };
+}
+
+
   const displayRooms = useMemo(() => {
     const query = roomSearch.trim().toLocaleLowerCase("th-TH");
 
     const list = rooms.filter((room) => {
       const matchesFloor =
         selectedFloor === "all" || getRoomFloor(room) === selectedFloor;
+
       const matchesSearch = String(getRoomName(room))
         .toLocaleLowerCase("th-TH")
         .includes(query);
@@ -364,7 +577,9 @@ export default function Review() {
     });
   }, [rooms, roomStats, selectedFloor, roomSearch, roomSort]);
 
-  const selectedRoom = rooms.find((room) => getRoomId(room) === selectedRoomId);
+  const selectedRoom = rooms.find(
+    (room) => getRoomId(room) === selectedRoomId
+  );
 
   function handleSelectRoom(id) {
     setSelectedRoomId(id);
@@ -398,9 +613,7 @@ export default function Review() {
         const userId = getUserId(readStoredUser());
 
         const response = await fetch(
-          `${API_BASE_URL}/api/rooms/${encodeURIComponent(
-            selectedRoomId
-          )}/reviews`,
+          `${API_BASE_URL}/api/rooms/${encodeURIComponent(selectedRoomId)}/reviews`,
           {
             method: "GET",
             headers: {
@@ -415,16 +628,53 @@ export default function Review() {
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok || data.success === false) {
-          throw new Error(data.message || "Unable to load room reviews.");
+          throw new Error(data.message || "ไม่สามารถโหลดรีวิวของห้องนี้ได้");
         }
 
-        setRoomData(data);
+        
+        const apiReviews = Array.isArray(data.reviews) ? data.reviews : [];
+
+        const room = rooms.find(
+        (item) => getRoomId(item) === selectedRoomId
+        );
+
+        const sampleData =
+        room && isRoom301(room) ? SAMPLE_ROOM_REVIEWS["301"] : null;
+
+        if (apiReviews.length === 0 && sampleData) {
+        setRoomData({
+            ...data,
+            ...sampleData,
+        });
+        } else {
+        setRoomData({
+            ...data,
+            reviews: apiReviews,
+            review_count:
+            data.review_count != null
+                ? data.review_count
+                : apiReviews.length,
+            average_rating: Number(data.average_rating) || 0,
+        });
+        }
+
       } catch (error) {
         if (error.name === "AbortError") return;
 
         console.error("Failed to load room reviews:", error);
-        setRoomData(null);
-        setRoomError("ไม่สามารถโหลดรีวิวของห้องนี้ได้");
+
+        const room = rooms.find(
+          (item) => getRoomId(item) === selectedRoomId
+        );
+
+        // ใช้ข้อมูลตัวอย่างห้อง 301 ได้แม้ API จะเรียกไม่สำเร็จ
+        if (room && isRoom301(room)) {
+          setRoomData(SAMPLE_ROOM_REVIEWS["301"]);
+          setRoomError("");
+        } else {
+          setRoomData(null);
+          setRoomError("ไม่สามารถโหลดรีวิวของห้องนี้ได้");
+        }
       } finally {
         if (!controller.signal.aborted) setRoomLoading(false);
       }
@@ -433,8 +683,9 @@ export default function Review() {
     loadRoomReviews();
 
     return () => controller.abort();
-  }, [selectedRoomId]);
+  }, [selectedRoomId, rooms]);
 
+  // ปิด Modal ด้วย Escape และล็อกการเลื่อนหน้าด้านหลัง
   useEffect(() => {
     if (!modalOpen) return undefined;
 
@@ -442,25 +693,30 @@ export default function Review() {
       if (event.key === "Escape") closeModal();
     }
 
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [modalOpen]);
 
   useEffect(() => {
     if (!toast) return undefined;
+
     const timer = window.setTimeout(() => setToast(""), 3200);
+
     return () => window.clearTimeout(timer);
   }, [toast]);
 
   const averageRating = useMemo(() => {
     if (!reviews.length) return 0;
+
     return (
-      reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+      reviews.reduce((sum, review) => sum + (Number(review.rating) || 0), 0) /
+      reviews.length
     );
   }, [reviews]);
 
@@ -468,7 +724,8 @@ export default function Review() {
     () =>
       [5, 4, 3, 2, 1].map((rating) => ({
         rating,
-        count: reviews.filter((review) => review.rating === rating).length,
+        count: reviews.filter((review) => Number(review.rating) === rating)
+          .length,
       })),
     [reviews]
   );
@@ -520,7 +777,7 @@ export default function Review() {
     setFeedbackError("");
     setReviewerName(getDisplayName(user));
     setSelectedRating(0);
-    setFeedbackType("รีวิวการใช้งานและข้อเสนอแนะ");
+    setFeedbackType(FEEDBACK_TYPES.REVIEW);
     setReviewMessage("");
     setModalOpen(true);
   }
@@ -533,8 +790,10 @@ export default function Review() {
   function handleLike(reviewId) {
     setLikedReviews((previous) => {
       const next = new Set(previous);
+
       if (next.has(reviewId)) next.delete(reviewId);
       else next.add(reviewId);
+
       return next;
     });
   }
@@ -544,7 +803,7 @@ export default function Review() {
 
     const name = reviewerName.trim();
     const message = reviewMessage.trim();
-    const isReview = feedbackType === "รีวิวการใช้งานและข้อเสนอแนะ";
+    const isReview = feedbackType === FEEDBACK_TYPES.REVIEW;
 
     if (!name || !message) {
       setFeedbackError("กรุณากรอกชื่อและความคิดเห็น");
@@ -565,7 +824,7 @@ export default function Review() {
         message,
         helpful: 0,
         verified: false,
-        type: feedbackType,
+        type: FEEDBACK_TYPES.REVIEW,
       };
 
       setReviews((previous) => [newReview, ...previous]);
@@ -574,8 +833,10 @@ export default function Review() {
       setRatingFilter("all");
       setSort("latest");
       setToast("เพิ่มรีวิวตัวอย่างแล้ว (ยังไม่ได้บันทึกลงฐานข้อมูล)");
+    } else if (feedbackType === FEEDBACK_TYPES.COMPLAINT) {
+      setToast("รับข้อมูลร้องเรียนตัวอย่างแล้ว (ยังไม่ได้ส่งไปยังฐานข้อมูล)");
     } else {
-      setToast("รับข้อมูลตัวอย่างแล้ว (ยังไม่ได้ส่งไปยังฐานข้อมูล)");
+      setToast("รับข้อมูลแจ้งปัญหาตัวอย่างแล้ว (ยังไม่ได้ส่งไปยังฐานข้อมูล)");
     }
 
     closeModal();
@@ -613,8 +874,8 @@ export default function Review() {
           </div>
 
           <div className="feedback-cta-copy">
-            <h2>เขียนรีวิว หรือส่งข้อเสนอแนะ</h2>
-            <p>แบ่งปันประสบการณ์หรือแจ้งปัญหา เพื่อให้เราปรับปรุงการให้บริการ</p>
+            <h2>รีวิว ร้องเรียน หรือแจ้งปัญหา</h2>
+            <p>แบ่งปันประสบการณ์ แจ้งข้อร้องเรียน หรือแจ้งอุปกรณ์ชำรุด</p>
           </div>
 
           <button
@@ -622,7 +883,7 @@ export default function Review() {
             className="button button-primary"
             onClick={openModal}
           >
-            ＋ เขียนรีวิว / ข้อเสนอแนะ
+            ＋ รีวิว / ร้องเรียน / แจ้งปัญหา
           </button>
         </section>
 
@@ -639,10 +900,7 @@ export default function Review() {
                 <small>/ 5</small>
               </div>
 
-              <div
-                className="stars"
-                aria-label={`คะแนนเฉลี่ย ${averageRating.toFixed(1)} จาก 5`}
-              >
+              <div className="stars">
                 <Stars rating={averageRating} />
               </div>
 
@@ -713,12 +971,10 @@ export default function Review() {
           </div>
 
           <p className="data-note">
-            * สถิติผู้เข้าชมและข้อมูลรีวิวเป็นข้อมูลตัวอย่าง ต้องเชื่อม API
-            เพื่อแสดงข้อมูลจริง
+            * สถิติผู้เข้าชมและข้อมูลรีวิวบางส่วนเป็นข้อมูลตัวอย่าง
           </p>
         </section>
 
-        {/* ===== รีวิวแยกตามห้อง ===== */}
         <section className="section-block" aria-labelledby="roomReviewsTitle">
           <div className="reviews-toolbar room-reviews-toolbar">
             <div className="section-heading">
@@ -814,6 +1070,7 @@ export default function Review() {
                           🏫
                         </div>
                       )}
+
                       <span className="room-card-badge">
                         {getRoomName(room)}
                       </span>
@@ -825,10 +1082,13 @@ export default function Review() {
                       <span className="room-card-star" aria-hidden="true">
                         ★
                       </span>
+
                       <strong>
                         {stat.count > 0 ? stat.average.toFixed(1) : "-"}
                       </strong>
+
                       <span className="room-card-of">/ 5</span>
+
                       <span className="room-card-count">
                         ({stat.count} รีวิว)
                       </span>
@@ -852,7 +1112,6 @@ export default function Review() {
             </div>
           )}
 
-          {/* รายละเอียดรีวิวของห้องที่เลือก */}
           {selectedRoomId && (
             <div id="roomReviewDetail" className="room-review-detail">
               <div className="room-review-detail-head">
@@ -886,7 +1145,7 @@ export default function Review() {
                       <span className="room-stat-label">คะแนนเฉลี่ย</span>
 
                       <div className="room-stat-value">
-                        {roomData.review_count > 0
+                        {Number(roomData.review_count) > 0
                           ? Number(roomData.average_rating).toFixed(1)
                           : "-"}
                         <small> / 5</small>
@@ -924,7 +1183,10 @@ export default function Review() {
 
                   <div className="review-list" aria-live="polite">
                     {visibleRoomReviews.map((review) => (
-                      <article className="review-card" key={review.id}>
+                      <article
+                        className="review-card"
+                        key={review.id}
+                      >
                         <div className="avatar" aria-hidden="true">
                           {(review.name || "?")
                             .trim()
@@ -934,12 +1196,25 @@ export default function Review() {
 
                         <div className="review-main">
                           <div className="review-meta">
-                            <span className="reviewer-name">{review.name}</span>
-                            <span className="verified">✓ เคยจองห้องจริง</span>
+                            <span className="reviewer-name">
+                              {review.name || "ผู้ใช้งาน"}
+                            </span>
+
+                            {review.verified && (
+                              <span className="verified">
+                                ✓ เคยจองห้องจริง
+                              </span>
+                            )}
+
+                            {!review.verified && (
+                              <span className="sample-review-label">
+                                ข้อมูลตัวอย่าง
+                              </span>
+                            )}
                           </div>
 
                           <p className="review-date">
-                            {formatThaiDate(review.date)} · {review.type}
+                            {formatThaiDate(review.date)} · {review.type || "รีวิว"}
                           </p>
 
                           {Number(review.rating) >= 1 && (
@@ -1060,7 +1335,9 @@ export default function Review() {
                       <span className="reviewer-name">{review.name}</span>
 
                       {review.verified && (
-                        <span className="verified">✓ เคยจองห้องจริง</span>
+                        <span className="verified">
+                          ✓ เคยจองห้องจริง
+                        </span>
                       )}
                     </div>
 
@@ -1091,7 +1368,7 @@ export default function Review() {
                     </div>
                   </div>
 
-                  <span className="review-status">✓ ยืนยันแล้ว</span>
+                  <span className="review-status">✓ ตัวอย่างรีวิว</span>
                 </article>
               );
             })}
@@ -1140,10 +1417,10 @@ export default function Review() {
             </button>
 
             <p className="eyebrow">YOUR FEEDBACK MATTERS</p>
-            <h2 id="feedbackModalTitle">เขียนรีวิว / ข้อเสนอแนะ</h2>
+            <h2 id="feedbackModalTitle">รีวิว / ร้องเรียน / แจ้งปัญหา</h2>
 
             <p className="modal-description">
-              แบ่งปันความคิดเห็นของคุณเกี่ยวกับระบบ BookingCSTU
+              เลือกประเภทที่ต้องการส่ง เพื่อช่วยพัฒนาระบบและการให้บริการ
             </p>
 
             <form onSubmit={handleSubmit}>
@@ -1161,36 +1438,6 @@ export default function Review() {
                 />
               </div>
 
-              <fieldset className="rating-field">
-                <legend>ให้คะแนนความพึงพอใจ</legend>
-
-                <div
-                  className="star-picker"
-                  role="radiogroup"
-                  aria-label="เลือกคะแนน 1 ถึง 5"
-                >
-                  {[1, 2, 3, 4, 5].map((rating) => (
-                    <button
-                      key={rating}
-                      type="button"
-                      className={rating <= selectedRating ? "selected" : ""}
-                      role="radio"
-                      aria-checked={selectedRating === rating}
-                      aria-label={`${rating} ดาว`}
-                      onClick={() => setSelectedRating(rating)}
-                    >
-                      ★
-                    </button>
-                  ))}
-                </div>
-
-                <span className="field-hint">
-                  {selectedRating
-                    ? `${selectedRating} จาก 5 ดาว`
-                    : "เลือกคะแนน 1–5 ดาว"}
-                </span>
-              </fieldset>
-
               <div className="form-field">
                 <label htmlFor="feedbackType">ประเภทความคิดเห็น</label>
 
@@ -1198,24 +1445,78 @@ export default function Review() {
                   id="feedbackType"
                   name="feedbackType"
                   value={feedbackType}
-                  onChange={(event) => setFeedbackType(event.target.value)}
+                  onChange={(event) => {
+                    setFeedbackType(event.target.value);
+                    setSelectedRating(0);
+                    setFeedbackError("");
+                  }}
                 >
-                  <option value="รีวิวการใช้งานและข้อเสนอแนะ">
-                    รีวิวการใช้งานและข้อเสนอแนะ
+                  <option value={FEEDBACK_TYPES.REVIEW}>รีวิว</option>
+                  <option value={FEEDBACK_TYPES.COMPLAINT}>ร้องเรียน</option>
+                  <option value={FEEDBACK_TYPES.REPAIR}>
+                    แจ้งปัญหา (อุปกรณ์ชำรุด)
                   </option>
-                  <option value="แจ้งปัญหา">แจ้งปัญหา</option>
                 </select>
               </div>
 
+              {feedbackType === FEEDBACK_TYPES.REVIEW && (
+                <fieldset className="rating-field">
+                  <legend>ให้คะแนนความพึงพอใจ</legend>
+
+                  <div
+                    className="star-picker"
+                    role="radiogroup"
+                    aria-label="เลือกคะแนน 1 ถึง 5"
+                  >
+                    {[1, 2, 3, 4, 5].map((rating) => (
+                      <button
+                        key={rating}
+                        type="button"
+                        className={
+                          rating <= selectedRating ? "selected" : ""
+                        }
+                        role="radio"
+                        aria-checked={selectedRating === rating}
+                        aria-label={`${rating} ดาว`}
+                        onClick={() => {
+                          setSelectedRating(rating);
+                          setFeedbackError("");
+                        }}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+
+                  <span className="field-hint">
+                    {selectedRating
+                      ? `${selectedRating} จาก 5 ดาว`
+                      : "เลือกคะแนน 1–5 ดาว"}
+                  </span>
+                </fieldset>
+              )}
+
               <div className="form-field">
-                <label htmlFor="reviewMessage">ความคิดเห็น</label>
+                <label htmlFor="reviewMessage">
+                  {feedbackType === FEEDBACK_TYPES.REVIEW
+                    ? "ความคิดเห็นรีวิว"
+                    : feedbackType === FEEDBACK_TYPES.COMPLAINT
+                      ? "รายละเอียดการร้องเรียน"
+                      : "รายละเอียดปัญหาอุปกรณ์"}
+                </label>
 
                 <textarea
                   id="reviewMessage"
                   name="reviewMessage"
                   rows={4}
                   maxLength={1000}
-                  placeholder="เล่าประสบการณ์หรือข้อเสนอแนะของคุณ..."
+                  placeholder={
+                    feedbackType === FEEDBACK_TYPES.REVIEW
+                      ? "แบ่งปันประสบการณ์การใช้ห้องของคุณ..."
+                      : feedbackType === FEEDBACK_TYPES.COMPLAINT
+                        ? "อธิบายเรื่องที่ต้องการร้องเรียน..."
+                        : "ระบุอุปกรณ์ที่ชำรุดและรายละเอียดของปัญหา..."
+                  }
                   required
                   value={reviewMessage}
                   onChange={(event) => setReviewMessage(event.target.value)}
@@ -1229,7 +1530,7 @@ export default function Review() {
               )}
 
               <p className="form-note">
-                ฟอร์มนี้เป็นตัวอย่าง ข้อมูลยังไม่ได้บันทึกลงฐานข้อมูล
+                ข้อมูลที่ส่งในหน้านี้เป็นข้อมูลตัวอย่าง ยังไม่ได้บันทึกลงฐานข้อมูล
               </p>
 
               <div className="modal-actions">
@@ -1242,7 +1543,7 @@ export default function Review() {
                 </button>
 
                 <button type="submit" className="button button-primary">
-                  ส่งความคิดเห็น
+                  ส่ง{feedbackType}
                 </button>
               </div>
             </form>

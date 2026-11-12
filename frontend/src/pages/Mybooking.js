@@ -1,31 +1,22 @@
-// ===================================================================
-// หน้า My Booking
-// - Your Reservations: Confirmed / Using
-// - Booking History: Completed / No show (Completed เขียนรีวิวได้)
-// - รายการที่ยกเลิกแล้วจะไม่แสดงในหน้านี้
-// ===================================================================
-
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../css/homepage.css";
 import "../css/Mybooking.css";
 import Navbar from "../components/navbar";
 
-// ---------- ค่าคงที่ ----------
-
 const API_BASE_URL = "http://localhost:5001";
 
-// พิกัดสถานที่สำหรับเช็กอิน
+// พิกัดเช็กอิน
 const CHECKIN_LOCATION = {
   latitude: 14.0735763,
   longitude: 100.606303,
 };
 
 // ระยะสูงสุดที่อนุญาตให้เช็กอิน (เมตร)
-const CHECKIN_RADIUS_METERS = 2000;
+const CHECKIN_RADIUS_METERS = 500;
 
 // ประเภท "แจ้งปัญหา" (ส่งถึงแอดมินเท่านั้น ไม่แสดงในหน้า Review)
-const PROBLEM_TYPE = "แจ้งปัญหา";
+const PROBLEM_TYPE = "แจ้งปัญหา (อุปกรณ์ชำรุด)";
 
 // ---------- ฟังก์ชันช่วยเหลือ (Helpers) ----------
 
@@ -208,7 +199,7 @@ function Mybooking() {
   const [reviewTarget, setReviewTarget] = useState(null);
   const [reviewerName, setReviewerName] = useState("");
   const [selectedRating, setSelectedRating] = useState(0);
-  const [feedbackType, setFeedbackType] = useState("รีวิวการใช้งาน");
+  const [feedbackType, setFeedbackType] = useState("รีวิว");
   const [reviewMessage, setReviewMessage] = useState("");
   const [feedbackError, setFeedbackError] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
@@ -486,7 +477,7 @@ function Mybooking() {
     setFeedbackError("");
     setReviewerName(getDisplayName(user));
     setSelectedRating(0);
-    setFeedbackType("รีวิวการใช้งาน");
+    setFeedbackType("รีวิว");
     setReviewMessage("");
     setReviewTarget(booking);
   };
@@ -908,7 +899,7 @@ function Mybooking() {
             </button>
 
             <p className="rv-eyebrow">YOUR FEEDBACK MATTERS</p>
-            <h2 id="feedbackModalTitle">เขียนรีวิว / ข้อเสนอแนะ</h2>
+            <h2 id="feedbackModalTitle">รีวิว / ร้องเรียน / แจ้งปัญหา</h2>
             <p className="rv-modal-description">
               ห้อง{" "}
               <strong>
@@ -969,15 +960,18 @@ function Mybooking() {
 
               <div className="rv-field">
                 <label htmlFor="feedbackType">ประเภทความคิดเห็น</label>
+
                 <select
                   id="feedbackType"
                   name="feedbackType"
                   value={feedbackType}
                   onChange={(event) => setFeedbackType(event.target.value)}
                 >
-                  <option value="รีวิวการใช้งาน">รีวิวการใช้งาน</option>
-                  <option value="ข้อเสนอแนะ">ข้อเสนอแนะ</option>
-                  <option value={PROBLEM_TYPE}>แจ้งปัญหา</option>
+                  <option value="รีวิว">รีวิว</option>
+                  <option value="ร้องเรียน">ร้องเรียน</option>
+                  <option value={PROBLEM_TYPE}>
+                    แจ้งปัญหา (อุปกรณ์ชำรุด)
+                  </option>
                 </select>
               </div>
 

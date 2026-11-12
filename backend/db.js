@@ -149,6 +149,26 @@ function getMinutes(time) {
   return hour * 60 + minute;
 }
 
+function addOneMonthClamped(dateString) {
+  const [year, month, day] = dateString.split("-").map(Number);
+
+  const targetDate = new Date(Date.UTC(year, month, 1));
+  const targetYear = targetDate.getUTCFullYear();
+  const targetMonth = targetDate.getUTCMonth();
+
+  const lastDayOfTargetMonth = new Date(
+    Date.UTC(targetYear, targetMonth + 1, 0)
+  ).getUTCDate();
+
+  const targetDay = Math.min(day, lastDayOfTargetMonth);
+
+  return [
+    targetYear,
+    String(targetMonth + 1).padStart(2, "0"),
+    String(targetDay).padStart(2, "0")
+  ].join("-");
+}
+
 function validateBookingDateTime(date, startTime, endTime) {
   const bookingDate = normalizeDate(date);
   const start = normalizeTime(startTime);
@@ -156,6 +176,13 @@ function validateBookingDateTime(date, startTime, endTime) {
 
   if (!isValidDate(bookingDate)) {
     throw new Error("วันที่จองไม่ถูกต้อง");
+  }
+
+  const today = getBangkokDate();
+  const maxBookingDate = addOneMonthClamped(today);
+
+  if (bookingDate < today || bookingDate > maxBookingDate) {
+    throw new Error("สามารถจองล่วงหน้าได้ไม่เกิน 1 เดือน");
   }
 
   if (!isWeekday(bookingDate)) {
@@ -770,7 +797,7 @@ async function updateBookingStatuses() {
 
       const nextCount = Number(users[0].no_show_count || 0) + 1;
 
-      if (nextCount >= 3) {
+      if (nextCount % 2 === 0) {
         await connection.execute(
           `UPDATE users
            SET no_show_count = ?,

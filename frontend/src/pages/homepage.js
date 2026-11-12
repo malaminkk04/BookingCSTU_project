@@ -42,6 +42,26 @@ function getBangkokDate() {
   return getBangkokDateTime().slice(0, 10);
 }
 
+function getMaxBookingDate() {
+  const today = getBangkokDate();
+  const [year, month, day] = today.split("-").map(Number);
+
+  const nextMonth = new Date(Date.UTC(year, month, 1));
+  const lastDayOfNextMonth = new Date(
+    Date.UTC(
+      nextMonth.getUTCFullYear(),
+      nextMonth.getUTCMonth() + 1,
+      0
+    )
+  ).getUTCDate();
+
+  return [
+    nextMonth.getUTCFullYear(),
+    String(nextMonth.getUTCMonth() + 1).padStart(2, "0"),
+    String(Math.min(day, lastDayOfNextMonth)).padStart(2, "0"),
+  ].join("-");
+}
+
 function isWeekendDate(value) {
   if (!value) return false;
 
@@ -669,8 +689,17 @@ function Homepage() {
               id="bookingDateFilter"
               type="date"
               min={getBangkokDate()}
+              max={getMaxBookingDate()}
               value={dateFilter}
-              onChange={(event) => setDateFilter(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+
+                if (value && value > getMaxBookingDate()) {
+                  return;
+                }
+
+                setDateFilter(value);
+              }}
             />
           </div>
 
@@ -889,10 +918,17 @@ function Homepage() {
                   name="date"
                   type="date"
                   min={getBangkokDate()}
+                  max={getMaxBookingDate()}
                   value={bookingDate}
-                  onChange={(event) =>
-                    handleBookingDateChange(event.target.value)
-                  }
+                  onChange={(event) => {
+                    const value = event.target.value;
+
+                    if (value && value > getMaxBookingDate()) {
+                      return;
+                    }
+
+                    handleBookingDateChange(value);
+                  }}
                   required
                 />
               </div>
