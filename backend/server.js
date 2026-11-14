@@ -4,6 +4,13 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
+const multer = require("multer");
+const {
+  validateRoomImage,
+  getManagedRoomImageFilename
+} = require("./utils/room-image");
 
 const {
   db,
@@ -20,6 +27,8 @@ const {
 
 const app = express();
 const PORT = Number(process.env.PORT || 5001);
+const ROOM_IMAGE_DIRECTORY = path.join(__dirname, "uploads", "rooms");
+const ROOM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 const TU_AUTH_URL = "https://restapi.tu.ac.th/api/v1/auth/Ad/verify";
 
@@ -33,6 +42,15 @@ const sessions = new Map();
 
 app.use(cors());
 app.use(express.json());
+app.use(
+  "/uploads/rooms",
+  express.static(ROOM_IMAGE_DIRECTORY, {
+    dotfiles: "deny",
+    index: false,
+    immutable: true,
+    maxAge: "1d"
+  })
+);
 
 function isDevelopment() {
   return process.env.NODE_ENV !== "production";
@@ -902,6 +920,389 @@ app.get(
 ======================================== */
 
 const adminRoomDb = db.promise();
+const roomImageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: ROOM_IMAGE_MAX_BYTES,
+    files: 1,
+    fields: 0,
+    parts: 1
+  }
+});
+
+function validateRoomId(req, res, next) {
+  if (!/^\d+$/.test(req.params.roomId)) {
+    return res.status(400).json({
+      success: false,
+      message: "รหัสห้องไม่ถูกต้อง"
+    });
+  }
+
+  const roomId = Number(req.params.roomId);
+
+  if (!Number.isSafeInteger(roomId) || roomId < 1) {
+    return res.status(400).json({
+      success: false,
+      message: "รหัสห้องไม่ถูกต้อง"
+    });
+  }
+
+  req.roomId = roomId;
+  next();
+}
+
+function parseRoomImage(req, res, next) {
+  roomImageUpload.single("image")(req, res, error => {
+    if (!error) {
+      return next();
+    }
+
+    if (error instanceof multer.MulterError) {
+      const tooLarge = error.code === "LIMIT_FILE_SIZE";
+
+      return res.status(tooLarge ? 413 : 400).json({
+        success: false,
+        message: tooLarge
+          ? "รูปภาพต้องมีขนาดไม่เกิน 5 MB"
+          : "ข้อมูลอัปโหลดรูปภาพไม่ถูกต้อง"
+      });
+    }
+
+    console.error("Room image upload parsing error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "ไม่สามารถประมวลผลไฟล์รูปภาพได้"
+    });
+  });
+}
+
+async function getRoomImageState(roomId) {
+  const connection = await adminRoomDb.getConnection();
+
+  try {
+    const [rooms] = await connection.execute(
+      "SELECT * FROM rooms WHERE room_id = ?",
+      [roomId]
+    );
+
+    return rooms[0] || null;
+  } finally {
+    connection.release();
+  }
+}
+
+function destroyRoomImageConnection(connection, context) {
+  if (!connection) {
+    return;
+  }
+
+  try {
+    connection.destroy();
+  } catch (error) {
+    console.error(context, error);
+  }
+}
+
+async function removeGeneratedRoomImage(imageUrl) {
+  const filename = getManagedRoomImageFilename(imageUrl);
+
+  if (!filename) {
+    throw new Error("Invalid generated room image path");
+  }
+
+  try {
+    await fs.promises.unlink(path.join(ROOM_IMAGE_DIRECTORY, filename));
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
+}
+
+async function reconcileRoomImageWrite(roomId, imageUrl, context) {
+  let room;
+
+  try {
+    room = await getRoomImageState(roomId);
+  } catch (error) {
+    console.error(`${context} Unable to verify database state; preserving image:`, error);
+    return { state: "unknown" };
+  }
+
+  if (room?.image_url === imageUrl) {
+    return { state: "committed", room };
+  }
+
+  try {
+    await removeGeneratedRoomImage(imageUrl);
+  } catch (error) {
+    console.error(`${context} Failed to remove unreferenced image:`, error);
+  }
+
+  return { state: "not_committed", room };
+}
+
+async function saveRoomImage(roomId, file, imageFormat) {
+  const filename = `${crypto.randomBytes(16).toString("hex")}.${imageFormat.extension}`;
+  const imageUrl = `/uploads/rooms/${filename}`;
+  let connection = await adminRoomDb.getConnection();
+  let transactionActive = false;
+  let fileCreated = false;
+  let commitAttempted = false;
+  let previousImageUrl = null;
+
+  try {
+    await connection.beginTransaction();
+    transactionActive = true;
+
+    const [existingRooms] = await connection.execute(
+      "SELECT room_id, image_url FROM rooms WHERE room_id = ? FOR UPDATE",
+      [roomId]
+    );
+
+    if (existingRooms.length === 0) {
+      await connection.rollback();
+      transactionActive = false;
+      return null;
+    }
+
+    previousImageUrl = existingRooms[0].image_url;
+
+    await fs.promises.mkdir(ROOM_IMAGE_DIRECTORY, { recursive: true });
+    let fileHandle;
+    let fileWriteError;
+    try {
+      fileHandle = await fs.promises.open(
+        path.join(ROOM_IMAGE_DIRECTORY, filename),
+        "wx"
+      );
+      fileCreated = true;
+      await fileHandle.writeFile(file.buffer);
+    } catch (writeError) {
+      fileWriteError = writeError;
+      throw writeError;
+    } finally {
+      if (fileHandle) {
+        try {
+          await fileHandle.close();
+        } catch (closeError) {
+          if (fileWriteError) {
+            console.error("Failed to close room image after write error:", closeError);
+          } else {
+            throw closeError;
+          }
+        }
+      }
+    }
+
+    await connection.execute(
+      `UPDATE rooms
+       SET image_url = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE room_id = ?`,
+      [imageUrl, roomId]
+    );
+
+    const [updatedRooms] = await connection.execute(
+      "SELECT * FROM rooms WHERE room_id = ?",
+      [roomId]
+    );
+
+    commitAttempted = true;
+    await connection.commit();
+    transactionActive = false;
+
+    return {
+      imageUrl,
+      previousImageUrl,
+      room: updatedRooms[0]
+    };
+  } catch (error) {
+    let rollbackSucceeded = false;
+    let rollbackFailed = false;
+
+    if (transactionActive && !commitAttempted) {
+      try {
+        await connection.rollback();
+        transactionActive = false;
+        rollbackSucceeded = true;
+      } catch (rollbackError) {
+        console.error("Room image transaction rollback error:", rollbackError);
+        rollbackFailed = true;
+      }
+    }
+
+    if (commitAttempted || rollbackFailed) {
+      const failedConnection = connection;
+      connection = null;
+      transactionActive = false;
+      destroyRoomImageConnection(
+        failedConnection,
+        "Failed to discard uncertain room image transaction connection:"
+      );
+    }
+
+    if (fileCreated) {
+      if (rollbackSucceeded) {
+        try {
+          await removeGeneratedRoomImage(imageUrl);
+        } catch (cleanupError) {
+          console.error("Failed to remove uncommitted room image:", cleanupError);
+        }
+      } else if (commitAttempted || rollbackFailed) {
+        const reconciliation = await reconcileRoomImageWrite(
+          roomId,
+          imageUrl,
+          "Room image transaction reconciliation error:"
+        );
+
+        if (reconciliation.state === "committed") {
+          return {
+            imageUrl,
+            previousImageUrl,
+            room: reconciliation.room
+          };
+        }
+      } else {
+        console.warn(
+          "Preserving room image because its database transaction outcome is unknown:",
+          imageUrl
+        );
+      }
+    }
+
+    throw error;
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+}
+
+async function clearRoomImage(roomId) {
+  let connection = await adminRoomDb.getConnection();
+  let transactionActive = false;
+  let commitAttempted = false;
+  let previousImageUrl = null;
+
+  try {
+    await connection.beginTransaction();
+    transactionActive = true;
+
+    const [existingRooms] = await connection.execute(
+      "SELECT room_id, image_url FROM rooms WHERE room_id = ? FOR UPDATE",
+      [roomId]
+    );
+
+    if (existingRooms.length === 0) {
+      await connection.rollback();
+      transactionActive = false;
+      return null;
+    }
+
+    previousImageUrl = existingRooms[0].image_url;
+
+    await connection.execute(
+      `UPDATE rooms
+       SET image_url = NULL, updated_at = CURRENT_TIMESTAMP
+       WHERE room_id = ?`,
+      [roomId]
+    );
+
+    const [updatedRooms] = await connection.execute(
+      "SELECT * FROM rooms WHERE room_id = ?",
+      [roomId]
+    );
+
+    commitAttempted = true;
+    await connection.commit();
+    transactionActive = false;
+
+    return {
+      previousImageUrl,
+      room: updatedRooms[0]
+    };
+  } catch (error) {
+    let rollbackFailed = false;
+
+    if (transactionActive && !commitAttempted) {
+      try {
+        await connection.rollback();
+        transactionActive = false;
+      } catch (rollbackError) {
+        console.error("Room image deletion rollback error:", rollbackError);
+        rollbackFailed = true;
+      }
+    }
+
+    if (commitAttempted || rollbackFailed) {
+      const failedConnection = connection;
+      connection = null;
+      transactionActive = false;
+      destroyRoomImageConnection(
+        failedConnection,
+        "Failed to discard uncertain room image deletion connection:"
+      );
+
+      try {
+        const room = await getRoomImageState(roomId);
+
+        if (room && room.image_url === null) {
+          return {
+            previousImageUrl,
+            room
+          };
+        }
+      } catch (verificationError) {
+        console.error(
+          "Room image deletion reconciliation error; preserving image:",
+          verificationError
+        );
+      }
+    }
+
+    throw error;
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+}
+
+async function removeRoomImageIfUnused(imageUrl) {
+  const filename = getManagedRoomImageFilename(imageUrl);
+
+  if (!filename) {
+    return;
+  }
+
+  const [rooms] = await adminRoomDb.execute(
+    "SELECT COUNT(*) AS image_usage_count FROM rooms WHERE image_url = ?",
+    [imageUrl]
+  );
+
+  if (Number(rooms[0].image_usage_count) > 0) {
+    return;
+  }
+
+  try {
+    await fs.promises.unlink(path.join(ROOM_IMAGE_DIRECTORY, filename));
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
+}
+
+async function getRoomImageCleanupWarning(imageUrl, context) {
+  try {
+    await removeRoomImageIfUnused(imageUrl);
+    return "";
+  } catch (error) {
+    console.error(context, error);
+    return "บันทึกข้อมูลแล้ว แต่ไม่สามารถลบไฟล์รูปเดิมได้";
+  }
+}
 
 // ดูรายการห้องทั้งหมด
 app.get(
@@ -921,6 +1322,7 @@ app.get(
           facilities,
           department_color,
           is_available,
+          image_url,
           room_type,
           created_at,
           updated_at
@@ -939,6 +1341,102 @@ app.get(
       res.status(500).json({
         success: false,
         message: "ไม่สามารถโหลดรายการห้องได้"
+      });
+    }
+  }
+);
+
+app.put(
+  "/api/admin/rooms/:roomId/image",
+  authenticateSession,
+  requireAdmin,
+  validateRoomId,
+  parseRoomImage,
+  async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "กรุณาเลือกไฟล์รูปภาพ"
+      });
+    }
+
+    const imageFormat = validateRoomImage(
+      req.file.buffer,
+      req.file.mimetype
+    );
+
+    if (!imageFormat) {
+      return res.status(400).json({
+        success: false,
+        message: "ไฟล์ต้องเป็น JPG, PNG หรือ WebP ที่มีชนิดไฟล์ถูกต้อง"
+      });
+    }
+
+    try {
+      const saved = await saveRoomImage(req.roomId, req.file, imageFormat);
+
+      if (!saved) {
+        return res.status(404).json({
+          success: false,
+          message: "ไม่พบห้องที่ต้องการอัปโหลดรูปภาพ"
+        });
+      }
+
+      const warning = await getRoomImageCleanupWarning(
+        saved.previousImageUrl,
+        "Room image replacement cleanup error:"
+      );
+
+      return res.json({
+        success: true,
+        message: "บันทึกรูปภาพห้องสำเร็จ",
+        room: saved.room,
+        ...(warning ? { warning } : {})
+      });
+    } catch (error) {
+      console.error("Admin upload room image error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "ไม่สามารถบันทึกรูปภาพห้องได้"
+      });
+    }
+  }
+);
+
+app.delete(
+  "/api/admin/rooms/:roomId/image",
+  authenticateSession,
+  requireAdmin,
+  validateRoomId,
+  async (req, res) => {
+    try {
+      const cleared = await clearRoomImage(req.roomId);
+
+      if (!cleared) {
+        return res.status(404).json({
+          success: false,
+          message: "ไม่พบห้องที่ต้องการลบรูปภาพ"
+        });
+      }
+
+      const warning = await getRoomImageCleanupWarning(
+        cleared.previousImageUrl,
+        "Room image deletion cleanup error:"
+      );
+
+      return res.json({
+        success: true,
+        message: "ลบรูปภาพห้องสำเร็จ",
+        room: cleared.room,
+        ...(warning ? { warning } : {})
+      });
+    } catch (error) {
+      console.error("Admin delete room image error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "ไม่สามารถลบรูปภาพห้องได้"
       });
     }
   }

@@ -576,7 +576,8 @@ function getRooms(role, callback) {
       facilities,
       department,
       department_color,
-      is_available
+      is_available,
+      image_url
     FROM rooms
     WHERE is_available = 1
   `;

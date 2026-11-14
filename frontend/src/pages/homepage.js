@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../css/homepage.css";
 import Navbar from "../components/navbar";
+import API_BASE_URL, { getApiAssetUrl } from "../services/api";
+import RoomImage from "../components/RoomImage";
 
-const API_BASE_URL = "http://localhost:5001";
 const STORAGE_USER_KEY = "user";
 const STORAGE_TOKEN_KEY = "token";
 
@@ -769,6 +770,12 @@ function Homepage() {
                       roomName(room)
                     }
                   >
+                    <RoomImage
+                      src={getApiAssetUrl(room.image_url)}
+                      alt={`รูปภาพ ${roomName(room)}`}
+                      className="room-card-image"
+                    />
+
                     <div className="room-card-top">
                       <span className="room-floor-tag">
                         {floorNumber === "อื่น ๆ"

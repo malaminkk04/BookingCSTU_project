@@ -1,8 +1,16 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import "../../css/admin/admin_room.css";
+import API_BASE_URL, { getApiAssetUrl } from "../../services/api";
+import RoomImage from "../../components/RoomImage";
 
-const API_BASE_URL = "http://localhost:5001";
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+]);
 
 const EMPTY_FORM = {
   room_code: "",
@@ -30,15 +38,24 @@ function AdminRooms() {
   const [saving, setSaving] = useState(false);
   const [changingRoomId, setChangingRoomId] = useState(null);
   const [confirmRoom, setConfirmRoom] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [removeCurrentImage, setRemoveCurrentImage] = useState(false);
+  const [imageError, setImageError] = useState("");
+  const [selectedImagePreview, setSelectedImagePreview] = useState("");
 
-  const getHeaders = useCallback(() => {
+  const getHeaders = useCallback((multipart = false) => {
     const token = localStorage.getItem("token");
 
-    return {
+    const headers = {
       Authorization: `Bearer ${token || ""}`,
       Accept: "application/json",
-      "Content-Type": "application/json",
     };
+
+    if (!multipart) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    return headers;
   }, []);
 
   const loadRooms = useCallback(async () => {
@@ -76,6 +93,18 @@ function AdminRooms() {
   useEffect(() => {
     loadRooms();
   }, [loadRooms]);
+
+  useEffect(() => {
+    if (!selectedImage) {
+      setSelectedImagePreview("");
+      return undefined;
+    }
+
+    const previewUrl = URL.createObjectURL(selectedImage);
+    setSelectedImagePreview(previewUrl);
+
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [selectedImage]);
 
   const filteredRooms = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -123,6 +152,9 @@ function AdminRooms() {
   function openCreateForm() {
     setEditingRoom(null);
     setForm({ ...EMPTY_FORM });
+    setSelectedImage(null);
+    setRemoveCurrentImage(false);
+    setImageError("");
     setNotice("");
     setError("");
     setFormOpen(true);
@@ -141,6 +173,9 @@ function AdminRooms() {
       room_type: room.room_type || "meeting_room",
       is_available: Number(room.is_available) === 1,
     });
+    setSelectedImage(null);
+    setRemoveCurrentImage(false);
+    setImageError("");
     setNotice("");
     setError("");
     setFormOpen(true);
@@ -150,6 +185,46 @@ function AdminRooms() {
     setFormOpen(false);
     setEditingRoom(null);
     setForm({ ...EMPTY_FORM });
+    setSelectedImage(null);
+    setRemoveCurrentImage(false);
+    setImageError("");
+  }
+
+  function handleImageSelection(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+      setSelectedImage(null);
+      setRemoveCurrentImage(false);
+      setImageError("รองรับไฟล์ JPG, PNG หรือ WebP เท่านั้น");
+      return;
+    }
+
+    if (file.size === 0 || file.size > MAX_IMAGE_SIZE_BYTES) {
+      setSelectedImage(null);
+      setRemoveCurrentImage(false);
+      setImageError("รูปภาพต้องมีขนาดไม่เกิน 5 MB");
+      return;
+    }
+
+    setSelectedImage(file);
+    setRemoveCurrentImage(false);
+    setImageError("");
+  }
+
+  function cancelImageChange() {
+    setSelectedImage(null);
+    setRemoveCurrentImage(false);
+    setImageError("");
+  }
+
+  function markImageForRemoval() {
+    setSelectedImage(null);
+    setRemoveCurrentImage(true);
+    setImageError("");
   }
 
   function updateForm(event) {
@@ -165,6 +240,7 @@ function AdminRooms() {
     event.preventDefault();
     setNotice("");
     setError("");
+    setImageError("");
 
     if (!form.room_code.trim() || !form.room_name.trim()) {
       setError("กรุณากรอกรหัสห้องและชื่อห้อง");
@@ -190,10 +266,15 @@ function AdminRooms() {
       is_available: Boolean(form.is_available),
     };
 
+    let savedRoom = editingRoom;
+    let imageMessage = "";
+    let operationWarning = "";
+    let imageOperationStarted = false;
+
     try {
       setSaving(true);
 
-      const isEditing = Boolean(editingRoom);
+      const isEditing = Boolean(editingRoom?.room_id);
       const url = isEditing
         ? `${API_BASE_URL}/api/admin/rooms/${editingRoom.room_id}`
         : `${API_BASE_URL}/api/admin/rooms`;
@@ -210,11 +291,81 @@ function AdminRooms() {
         throw new Error(result.message || "ไม่สามารถบันทึกข้อมูลห้องได้");
       }
 
+      savedRoom = result.room || savedRoom;
+
+      if (!savedRoom?.room_id) {
+        throw new Error("บันทึกห้องแล้วแต่ไม่พบรหัสห้อง กรุณารีเฟรชรายการห้อง");
+      }
+
+      if (!isEditing) {
+        setEditingRoom(savedRoom);
+      }
+
+      const imageEndpoint =
+        `${API_BASE_URL}/api/admin/rooms/${savedRoom.room_id}/image`;
+
+      if (selectedImage) {
+        imageOperationStarted = true;
+        const imageForm = new FormData();
+        imageForm.append("image", selectedImage);
+
+        const imageResponse = await fetch(imageEndpoint, {
+          method: "PUT",
+          headers: getHeaders(true),
+          body: imageForm,
+        });
+        const imageResult = await imageResponse.json().catch(() => ({}));
+
+        if (!imageResponse.ok || !imageResult.success) {
+          throw new Error(
+            imageResult.message || "บันทึกห้องแล้วแต่อัปโหลดรูปไม่สำเร็จ"
+          );
+        }
+
+        imageMessage = imageResult.message || "อัปโหลดรูปภาพห้องสำเร็จ";
+        operationWarning = imageResult.warning || "";
+      } else if (removeCurrentImage && isEditing) {
+        imageOperationStarted = true;
+        const imageResponse = await fetch(imageEndpoint, {
+          method: "DELETE",
+          headers: getHeaders(),
+        });
+        const imageResult = await imageResponse.json().catch(() => ({}));
+
+        if (!imageResponse.ok || !imageResult.success) {
+          throw new Error(
+            imageResult.message || "บันทึกข้อมูลห้องแล้วแต่ลบรูปไม่สำเร็จ"
+          );
+        }
+
+        imageMessage = imageResult.message || "ลบรูปภาพห้องสำเร็จ";
+        operationWarning = imageResult.warning || "";
+      }
+
       closeForm();
-      setNotice(result.message || "บันทึกข้อมูลสำเร็จ");
+      setNotice(
+        [
+          result.message || "บันทึกข้อมูลสำเร็จ",
+          imageMessage,
+          operationWarning,
+        ]
+          .filter(Boolean)
+          .join(" ")
+      );
       await loadRooms();
     } catch (err) {
-      setError(err.message || "เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+      const message = err.message || "เกิดข้อผิดพลาดในการบันทึกข้อมูล";
+
+      if (imageOperationStarted) {
+        setImageError(message);
+      }
+
+      if (!editingRoom && savedRoom?.room_id) {
+        setEditingRoom(savedRoom);
+        setNotice("สร้างห้องแล้ว คุณสามารถแก้ไขและลองบันทึกรูปภาพอีกครั้ง");
+      }
+
+      setError(message);
     } finally {
       setSaving(false);
     }
@@ -310,7 +461,7 @@ function AdminRooms() {
       )}
 
       {/* Error message */}
-      {error && (
+      {error && !formOpen && (
         <div className="admin-room-alert error" role="alert">
           <span>{error}</span>
           <button
@@ -553,7 +704,86 @@ function AdminRooms() {
             </div>
 
             <form onSubmit={handleSubmit}>
+              {error && (
+                <div className="admin-room-alert error" role="alert">
+                  <span>{error}</span>
+                  <button
+                    type="button"
+                    onClick={() => setError("")}
+                    aria-label="ปิดข้อความ"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
               <div className="admin-room-form-grid">
+                <div className="admin-room-form-full admin-room-image-field">
+                  <span className="admin-room-image-label">รูปภาพห้อง</span>
+                  <RoomImage
+                    src={
+                      selectedImagePreview ||
+                      (removeCurrentImage
+                        ? null
+                        : getApiAssetUrl(editingRoom?.image_url))
+                    }
+                    alt={`รูปภาพ ${form.room_name || "ห้องประชุม"}`}
+                    className="admin-room-image-preview"
+                  />
+
+                  <div className="admin-room-image-actions">
+                    <label className="admin-room-edit-button admin-room-image-select">
+                      {selectedImage || editingRoom?.image_url
+                        ? "เปลี่ยนรูปภาพ"
+                        : "เลือกรูปภาพ"}
+                      <input
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                        onChange={handleImageSelection}
+                        disabled={saving}
+                      />
+                    </label>
+
+                    {(selectedImage || removeCurrentImage) && (
+                      <button
+                        type="button"
+                        className="admin-room-cancel-button"
+                        onClick={cancelImageChange}
+                        disabled={saving}
+                      >
+                        ยกเลิกการเปลี่ยนรูป
+                      </button>
+                    )}
+
+                    {!selectedImage &&
+                      !removeCurrentImage &&
+                      editingRoom?.image_url && (
+                        <button
+                          type="button"
+                          className="admin-room-image-delete"
+                          onClick={markImageForRemoval}
+                          disabled={saving}
+                        >
+                          ลบรูปภาพ
+                        </button>
+                      )}
+                  </div>
+
+                  <small className="admin-room-image-hint">
+                    รองรับ JPG, PNG และ WebP ขนาดไม่เกิน 5 MB
+                  </small>
+                  {removeCurrentImage && (
+                    <small className="admin-room-image-pending">
+                      รูปภาพจะถูกลบเมื่อกดบันทึก
+                    </small>
+                  )}
+                  {imageError && (
+                    <small className="admin-room-image-error" role="alert">
+                      {imageError}
+                    </small>
+                  )}
+                </div>
+
                 <label>
                   รหัสห้อง <span>*</span>
                   <input
@@ -691,7 +921,11 @@ function AdminRooms() {
                   className="admin-room-primary-button"
                   disabled={saving}
                 >
-                  {saving ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
+                  {saving
+                    ? selectedImage
+                      ? "กำลังบันทึกรูป..."
+                      : "กำลังบันทึก..."
+                    : "บันทึกข้อมูล"}
                 </button>
               </div>
             </form>
