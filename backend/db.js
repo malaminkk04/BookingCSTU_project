@@ -220,10 +220,15 @@ function validateBookingDateTime(date, startTime, endTime) {
   }
 
   const requestedStart = `${bookingDate} ${start}`;
+  const requestedEnd = `${bookingDate} ${end}`;
   const now = getBangkokDateTime();
 
   if (requestedStart <= now) {
     throw new Error("ไม่สามารถจองวันที่หรือเวลาที่ผ่านมาแล้วได้");
+  }
+
+  if (requestedEnd <= now) {
+    throw new Error("เวลาสิ้นสุดผ่านไปแล้ว ไม่สามารถจองช่วงเวลานี้ได้");
   }
 
   return {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../css/homepage.css";
 import Navbar from "../components/navbar";
@@ -69,6 +69,214 @@ function isWeekendDate(value) {
   const day = new Date(`${value}T00:00:00Z`).getUTCDay();
 
   return day === 0 || day === 6;
+}
+
+function formatMonthKey(year, month) {
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+function getMonthKeyForOffset(monthKey, offset) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1 + offset, 1));
+
+  return formatMonthKey(date.getUTCFullYear(), date.getUTCMonth() + 1);
+}
+
+function WeekdayDatePicker({
+  id,
+  label,
+  value,
+  minDate,
+  maxDate,
+  onChange,
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [visibleMonth, setVisibleMonth] = useState(minDate.slice(0, 7));
+  const [placement, setPlacement] = useState("below");
+  const containerRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    function handlePointerDown(event) {
+      if (!containerRef.current?.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+        triggerRef.current?.focus();
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const [year, month] = visibleMonth.split("-").map(Number);
+  const monthStart = new Date(Date.UTC(year, month - 1, 1));
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const firstWeekday = monthStart.getUTCDay();
+  const weekCount = Math.ceil((firstWeekday + daysInMonth) / 7);
+  const monthLabel = new Intl.DateTimeFormat("th-TH-u-ca-gregory", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(monthStart);
+  const dateLabel = value
+    ? new Intl.DateTimeFormat("th-TH-u-ca-gregory", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      }).format(new Date(`${value}T00:00:00Z`))
+    : "เลือกวันที่";
+  const canGoToPreviousMonth =
+    visibleMonth > minDate.slice(0, 7);
+  const canGoToNextMonth =
+    visibleMonth < maxDate.slice(0, 7);
+
+  function toggleCalendar() {
+    if (!isOpen) {
+      setVisibleMonth((value || minDate).slice(0, 7));
+      const bounds = triggerRef.current?.getBoundingClientRect();
+      const hasRoomBelow =
+        bounds && window.innerHeight - bounds.bottom >= 360;
+      const hasRoomAbove = bounds && bounds.top >= 360;
+
+      setPlacement(!hasRoomBelow && hasRoomAbove ? "above" : "below");
+    }
+
+    setIsOpen(!isOpen);
+  }
+
+  return (
+    <div className="weekday-date-picker" ref={containerRef}>
+      <button
+        ref={triggerRef}
+        id={id}
+        type="button"
+        className="date-picker-trigger"
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        aria-controls={`${id}Calendar`}
+        onClick={toggleCalendar}
+      >
+        <span>{dateLabel}</span>
+        <span className="date-picker-trigger-icon" aria-hidden="true">
+          ▦
+        </span>
+      </button>
+
+      {isOpen && (
+        <div
+          id={`${id}Calendar`}
+          className={`weekday-date-picker-popover placement-${placement}`}
+          role="dialog"
+          aria-label={label}
+        >
+          <div className="weekday-date-picker-heading">
+            <button
+              type="button"
+              aria-label="เดือนก่อนหน้า"
+              disabled={!canGoToPreviousMonth}
+              onClick={() =>
+                setVisibleMonth((current) =>
+                  getMonthKeyForOffset(current, -1)
+                )
+              }
+            >
+              ‹
+            </button>
+            <strong>{monthLabel}</strong>
+            <button
+              type="button"
+              aria-label="เดือนถัดไป"
+              disabled={!canGoToNextMonth}
+              onClick={() =>
+                setVisibleMonth((current) =>
+                  getMonthKeyForOffset(current, 1)
+                )
+              }
+            >
+              ›
+            </button>
+          </div>
+
+          <table className="weekday-date-picker-calendar">
+            <thead>
+              <tr>
+                {["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((day) => (
+                  <th key={day} scope="col">
+                    {day}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: weekCount }, (_, weekIndex) => (
+                <tr key={weekIndex}>
+                  {Array.from({ length: 7 }, (_, dayIndex) => {
+                    const day =
+                      weekIndex * 7 + dayIndex - firstWeekday + 1;
+
+                    if (day < 1 || day > daysInMonth) {
+                      return <td key={dayIndex} />;
+                    }
+
+                    const date = `${visibleMonth}-${String(day).padStart(
+                      2,
+                      "0"
+                    )}`;
+                    const isDisabled =
+                      date < minDate ||
+                      date > maxDate ||
+                      isWeekendDate(date);
+
+                    return (
+                      <td key={dayIndex}>
+                        <button
+                          type="button"
+                          className={
+                            date === value ? "selected-date" : undefined
+                          }
+                          aria-label={new Intl.DateTimeFormat(
+                            "th-TH-u-ca-gregory",
+                            {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                              timeZone: "UTC",
+                            }
+                          ).format(new Date(`${date}T00:00:00Z`))}
+                          aria-pressed={date === value}
+                          disabled={isDisabled}
+                          onClick={() => {
+                            onChange(date);
+                            setIsOpen(false);
+                          }}
+                        >
+                          {day}
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function roomName(room) {
@@ -686,21 +894,13 @@ function Homepage() {
 
           <div className="filter-field date-filter-field">
             <label htmlFor="bookingDateFilter">วันที่ต้องการจอง</label>
-            <input
+            <WeekdayDatePicker
               id="bookingDateFilter"
-              type="date"
-              min={getBangkokDate()}
-              max={getMaxBookingDate()}
+              label="เลือกวันที่ต้องการจอง"
               value={dateFilter}
-              onChange={(event) => {
-                const value = event.target.value;
-
-                if (value && value > getMaxBookingDate()) {
-                  return;
-                }
-
-                setDateFilter(value);
-              }}
+              minDate={getBangkokDate()}
+              maxDate={getMaxBookingDate()}
+              onChange={setDateFilter}
             />
           </div>
 
@@ -920,23 +1120,13 @@ function Homepage() {
 
               <div className="form-field">
                 <label htmlFor="bookingDate">วันที่จอง</label>
-                <input
+                <WeekdayDatePicker
                   id="bookingDate"
-                  name="date"
-                  type="date"
-                  min={getBangkokDate()}
-                  max={getMaxBookingDate()}
+                  label="เลือกวันที่จอง"
                   value={bookingDate}
-                  onChange={(event) => {
-                    const value = event.target.value;
-
-                    if (value && value > getMaxBookingDate()) {
-                      return;
-                    }
-
-                    handleBookingDateChange(value);
-                  }}
-                  required
+                  minDate={getBangkokDate()}
+                  maxDate={getMaxBookingDate()}
+                  onChange={handleBookingDateChange}
                 />
               </div>
 

@@ -41,6 +41,7 @@ function App() {
         <Route path="/Guide.html" element={<Guide />} />
 
         <Route path="/rule" element={<Rule />} />
+        <Route path="/Rule.html" element={<Rule />} />
 
         <Route path="/review" element={<Review />} />
 

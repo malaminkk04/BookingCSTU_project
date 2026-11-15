@@ -335,7 +335,8 @@ a {
 .filter-field select,
 .form-field input,
 .form-field select,
-.form-field textarea {
+.form-field textarea,
+.date-picker-trigger {
   width: 100%;
   min-height: 43px;
   padding: 10px 12px;
@@ -348,11 +349,120 @@ a {
   transition: border-color .2s, box-shadow .2s;
 }
 
+.date-picker-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.date-picker-trigger-icon {
+  color: #718096;
+}
+
+.weekday-date-picker {
+  position: relative;
+  width: 100%;
+}
+
+.weekday-date-picker-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  width: min(340px, calc(100vw - 32px));
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(23, 43, 77, .16);
+}
+
+.weekday-date-picker-popover.placement-above {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
+.weekday-date-picker-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.weekday-date-picker-heading strong {
+  color: var(--navy);
+  font-size: 13px;
+}
+
+.weekday-date-picker-heading button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: #f3f6fa;
+  color: var(--navy);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.weekday-date-picker-heading button:disabled {
+  color: #b7c1ce;
+  cursor: not-allowed;
+}
+
+.weekday-date-picker-calendar {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  text-align: center;
+}
+
+.weekday-date-picker-calendar th {
+  height: 32px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.weekday-date-picker-calendar td {
+  height: 38px;
+  padding: 2px;
+}
+
+.weekday-date-picker-calendar td button {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.weekday-date-picker-calendar td button:hover:not(:disabled) {
+  background: var(--blue-light);
+  color: var(--blue);
+}
+
+.weekday-date-picker-calendar td button.selected-date {
+  background: var(--blue);
+  color: #fff;
+}
+
+.weekday-date-picker-calendar td button:disabled {
+  color: #c4ccd7;
+  cursor: not-allowed;
+}
+
 .filter-field input:focus,
 .filter-field select:focus,
 .form-field input:focus,
 .form-field select:focus,
-.form-field textarea:focus {
+.form-field textarea:focus,
+.date-picker-trigger:focus {
   border-color: #6d91ca;
   box-shadow: 0 0 0 3px rgba(40, 89, 168, .1);
 }

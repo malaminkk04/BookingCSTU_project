@@ -29,6 +29,22 @@ function Rule() {
             <article className="rule-item">
               <span className="rule-number">01</span>
               <div>
+                <h3>วันและเวลาที่เปิดให้จอง</h3>
+                <p>
+                  จองได้วันจันทร์ถึงวันศุกร์ เวลา 08:00–16:00 น.
+                  และจองล่วงหน้าได้ไม่เกิน 1 เดือน
+                </p>
+                <ul className="rule-sublist">
+                  <li>ระยะเวลาจองแต่ละครั้ง 1–2 ชั่วโมง</li>
+                  <li>นักศึกษาจองได้เฉพาะห้อง 301–305, 314 และ 315</li>
+                  <li>อาจารย์จองได้ไม่เกิน 20 ชั่วโมงต่อเดือน</li>
+                </ul>
+              </div>
+            </article>
+
+            <article className="rule-item">
+              <span className="rule-number">02</span>
+              <div>
                 <h3>งดรับประทานอาหารและเครื่องดื่ม</h3>
                 <p>
                   ไม่อนุญาตให้นำอาหารและเครื่องดื่มเข้ามารับประทานภายในห้องประชุม
@@ -37,7 +53,7 @@ function Rule() {
             </article>
 
             <article className="rule-item">
-              <span className="rule-number">02</span>
+              <span className="rule-number">03</span>
               <div>
                 <h3>รักษาความสงบ</h3>
                 <p>
@@ -47,7 +63,7 @@ function Rule() {
             </article>
 
             <article className="rule-item">
-              <span className="rule-number">03</span>
+              <span className="rule-number">04</span>
               <div>
                 <h3>ห้ามจองที่นั่งหรือพื้นที่ไว้ล่วงหน้าโดยไม่ใช้งาน</h3>
                 <p>
@@ -58,23 +74,22 @@ function Rule() {
             </article>
 
             <article className="rule-item">
-              <span className="rule-number">04</span>
+              <span className="rule-number">05</span>
               <div>
                 <h3>ยืนยันการเข้าใช้งานห้อง</h3>
                 <p>
-                  ผู้จองต้องยืนยันการเข้าใช้งานห้องภายในเวลาที่กำหนด
-                  โดยสามารถยืนยันได้ในช่วงเวลาต่อไปนี้
+                  ผู้จองต้องเช็กอินในวันที่จอง ตั้งแต่เวลาเริ่มจองจนถึง
+                  15 นาทีหลังเวลาเริ่ม
                 </p>
 
                 <ul className="rule-sublist">
-                  <li>ภายใน 15 นาทีก่อนเวลาเริ่มจอง</li>
-                  <li>ภายใน 15 นาทีหลังเวลาเริ่มจอง</li>
+                  <li>ไม่สามารถเช็กอินก่อนเวลาเริ่มจองได้</li>
                 </ul>
               </div>
             </article>
 
             <article className="rule-item">
-              <span className="rule-number">05</span>
+              <span className="rule-number">06</span>
               <div>
                 <h3>ยกเลิกการจองล่วงหน้า</h3>
                 <p>
@@ -85,23 +100,23 @@ function Rule() {
             </article>
 
             <article className="rule-item rule-item-warning">
-              <span className="rule-number">06</span>
+              <span className="rule-number">07</span>
               <div>
                 <h3>ไม่ยืนยันการเข้าใช้งานตามเวลาที่กำหนด</h3>
                 <p>
-                  หากผู้จองไม่ยืนยันการเข้าใช้งานภายในเวลาที่กำหนด
-                  ระบบจะยกเลิกการจองโดยอัตโนมัติ
+                  หากไม่เช็กอินภายในช่วงเวลาที่กำหนด ระบบจะบันทึกสถานะ
+                  No-show ให้รายการจอง
                 </p>
               </div>
             </article>
 
             <article className="rule-item rule-item-warning">
-              <span className="rule-number">07</span>
+              <span className="rule-number">08</span>
               <div>
                 <h3>การระงับสิทธิ์การจอง</h3>
                 <p>
-                  หากผู้จองไม่ยืนยันการเข้าใช้งานตามเงื่อนไขครบ 2 ครั้ง
-                  จะถูกระงับสิทธิ์การจองห้องเป็นเวลา 1 เดือน
+                  เมื่อมีสถานะ No-show ครบทุก 2 ครั้ง
+                  จะถูกระงับสิทธิ์การจองห้องเป็นเวลา 14 วัน
                 </p>
               </div>
             </article>

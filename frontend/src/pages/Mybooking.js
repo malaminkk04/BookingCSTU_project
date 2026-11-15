@@ -668,6 +668,14 @@ function Mybooking() {
                 </strong>
               </div>
             </div>
+
+            <div className="booking-detail">
+              <span className="detail-icon" aria-hidden="true">№</span>
+              <div>
+                <span className="detail-label">Booking number</span>
+                <strong className="booking-id">{rawId ?? "-"}</strong>
+              </div>
+            </div>
           </div>
         </div>
 

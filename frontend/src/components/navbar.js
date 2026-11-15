@@ -107,6 +107,68 @@ function Navbar() {
         </span>
       </button>
 
+      <div className="nb-profile-menu">
+        <button
+          type="button"
+          id="profileButton"
+          className="nb-profile-button"
+          aria-expanded={profileOpen}
+          aria-controls="profilePopup"
+          onClick={toggleProfile}
+        >
+          <span>PROFILE</span>
+          <span className="nb-chevron" aria-hidden="true">
+            ⌄
+          </span>
+        </button>
+
+        {profileOpen && (
+          <section
+            id="profilePopup"
+            className="nb-profile-popup"
+            aria-label="ข้อมูลผู้ใช้"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2>ข้อมูลผู้ใช้</h2>
+
+            <dl className="nb-profile-details">
+              <div>
+                <dt>ชื่อ</dt>
+                <dd>{displayName}</dd>
+              </div>
+
+              <div>
+                <dt>Username</dt>
+                <dd>{username}</dd>
+              </div>
+
+              <div>
+                <dt>คณะ</dt>
+                <dd>{faculty}</dd>
+              </div>
+
+              <div>
+                <dt>สาขา</dt>
+                <dd>{department}</dd>
+              </div>
+
+              <div>
+                <dt>Email</dt>
+                <dd>{email}</dd>
+              </div>
+            </dl>
+
+            <button
+              type="button"
+              className="nb-logout"
+              onClick={logout}
+            >
+              LOGOUT
+            </button>
+          </section>
+        )}
+      </div>
+
       <nav className="nb-nav" aria-label="Main navigation">
         <button
           type="button"
@@ -151,68 +213,6 @@ function Navbar() {
         >
           REVIEW
         </button>
-
-        <div className="nb-profile-menu">
-          <button
-            type="button"
-            id="profileButton"
-            className="nb-profile-button"
-            aria-expanded={profileOpen}
-            aria-controls="profilePopup"
-            onClick={toggleProfile}
-          >
-            <span>PROFILE</span>
-            <span className="nb-chevron" aria-hidden="true">
-              ⌄
-            </span>
-          </button>
-
-          {profileOpen && (
-            <section
-              id="profilePopup"
-              className="nb-profile-popup"
-              aria-label="ข้อมูลผู้ใช้"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <h2>ข้อมูลผู้ใช้</h2>
-
-              <dl className="nb-profile-details">
-                <div>
-                  <dt>ชื่อ</dt>
-                  <dd>{displayName}</dd>
-                </div>
-
-                <div>
-                  <dt>Username</dt>
-                  <dd>{username}</dd>
-                </div>
-
-                <div>
-                  <dt>คณะ</dt>
-                  <dd>{faculty}</dd>
-                </div>
-
-                <div>
-                  <dt>สาขา</dt>
-                  <dd>{department}</dd>
-                </div>
-
-                <div>
-                  <dt>Email</dt>
-                  <dd>{email}</dd>
-                </div>
-              </dl>
-
-              <button
-                type="button"
-                className="nb-logout"
-                onClick={logout}
-              >
-                LOGOUT
-              </button>
-            </section>
-          )}
-        </div>
       </nav>
     </header>
   );

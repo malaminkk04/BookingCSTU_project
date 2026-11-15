@@ -15,9 +15,11 @@
   position: sticky;
   top: 0;
   z-index: 20;
+  flex-wrap: nowrap;
 }
 
 .nb-brand {
+  order: 1;
   display: inline-flex;
   align-items: center;
   gap: 12px;
@@ -60,9 +62,12 @@
   margin-top: 5px;
 }
 
-/* Navigation: ทุกปุ่มอยู่แถวเดียวกัน PROFILE ต่อจาก REVIEW */
+/* Navigation links */
 
 .nb-nav {
+  order: 2;
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -108,6 +113,7 @@
 /* Profile: ไม่มีกรอบ ไม่มีพื้นหลัง ไม่มี padding สีขาว */
 
 .nb-profile-menu {
+  order: 3;
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -123,11 +129,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 40px;
+  gap: clamp(6px, 0.65vw, 8px);
+  min-height: clamp(40px, 3.2vw, 44px);
   width: auto;
   margin: 0;
-  padding: 0 16px;
+  padding: 0 clamp(12px, 1.25vw, 16px);
   border: 1px solid #d3e0f7;
   border-radius: 10px;
   outline: none;
@@ -135,7 +141,7 @@
   background: #e8f0fe;
   color: #273c70;
   font-family: Inter, sans-serif;
-  font-size: 11px;
+  font-size: clamp(10px, 0.86vw, 11px);
   font-weight: 700;
   letter-spacing: 0.07em;
   white-space: nowrap;
@@ -159,7 +165,7 @@
 .nb-chevron {
   display: inline-block;
   color: inherit;
-  font-size: 15px;
+  font-size: clamp(12px, 1.2vw, 15px);
   line-height: 1;
   transition: transform 0.2s ease;
 }
@@ -271,13 +277,26 @@
   .nb-header {
     position: relative;
     padding: 15px 18px;
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
     gap: 14px;
   }
 
+  .nb-brand {
+    order: 1;
+  }
+
+  .nb-profile-menu {
+    order: 2;
+    margin-left: auto;
+  }
+
   .nb-nav {
+    order: 3;
     width: 100%;
+    flex: 1 0 100%;
     justify-content: flex-start;
     flex-wrap: wrap;
     gap: 6px 14px;
@@ -290,7 +309,14 @@
   }
 
   .nb-profile-button {
-    min-height: 36px;
+    min-height: 44px;
+    gap: 6px;
+    padding-inline: 12px;
+    font-size: 10px;
+  }
+
+  .nb-chevron {
+    font-size: 13px;
   }
 
   .nb-profile-popup {
@@ -315,5 +341,14 @@
 
   .nb-nav {
     gap: 4px 10px;
+  }
+
+  .nb-profile-button {
+    padding-inline: 10px;
+    font-size: 9px;
+  }
+
+  .nb-chevron {
+    font-size: 12px;
   }
 }

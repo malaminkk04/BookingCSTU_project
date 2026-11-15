@@ -159,10 +159,21 @@
     overflow-x: auto;
   }
 
+  .admin-sidebar-container.sidebar-open .admin-sidebar-nav {
+    flex-direction: column;
+    gap: 8px;
+    overflow-x: visible;
+  }
+
   .admin-sidebar-link {
     min-height: 42px;
     min-width: max-content;
     padding: 0 12px;
+  }
+
+  .admin-sidebar-container.sidebar-open .admin-sidebar-link {
+    width: 100%;
+    min-width: 0;
   }
 
   .admin-sidebar-footer {
