@@ -110,7 +110,7 @@ GROUP BY room_id;
 
 
 -- ==========================================
--- จำนวนครั้งที่ห้องถูกใช้งานตัวอย่างนี้นับเฉพาะ confirmed และ completed
+-- จำนวนครั้งที่ห้องถูกใช้งานนับเฉพาะ checked_in และ completed
 -- ==========================================
 
 SELECT
@@ -118,7 +118,7 @@ SELECT
     COUNT(*) AS usage_count
 FROM bookings
 WHERE room_id = ?
-  AND status IN ('confirmed', 'completed')
+  AND status IN ('checked_in', 'completed')
 GROUP BY room_id;
 
 

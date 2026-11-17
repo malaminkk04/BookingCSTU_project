@@ -4,10 +4,10 @@ import { useNavigate } from "react-router-dom";
 import "../css/homepage.css";
 import "../css/review.css";
 import Navbar from "../components/navbar";
+import API_BASE_URL from "../services/api";
 
 const USER_KEY = "user";
 const TOKEN_KEY = "token";
-const API_BASE_URL = "http://localhost:5001";
 const ROOMS_ENDPOINT = `${API_BASE_URL}/api/rooms`;
 const ROOM_PAGE_SIZE = 5;
 

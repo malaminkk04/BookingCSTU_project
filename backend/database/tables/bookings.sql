@@ -9,12 +9,12 @@ CREATE TABLE bookings (
     end_time TIME NOT NULL,
 
     status ENUM(
-        'confirmed',
+        'reserved',
         'checked_in',
         'completed',
         'cancelled',
         'no_show'
-    ) DEFAULT 'confirmed',
+    ) DEFAULT 'reserved',
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

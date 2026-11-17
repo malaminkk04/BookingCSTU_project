@@ -1,24 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../../css/admin/admin_booking.css";
-
-const API_BASE_URL = "http://localhost:5001";
+import API_BASE_URL from "../../services/api";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "ทุกสถานะ" },
-  { value: "reserved", label: "จองสำเร็จ" },
-  { value: "checked_in", label: "เช็คอิน" },
-  { value: "completed", label: "ใช้งานสำเร็จ" },
-  { value: "cancelled", label: "ยกเลิก" },
+  { value: "reserved", label: "จองสำเร็จ / รอเช็กอิน" },
+  { value: "checked_in", label: "เช็กอินแล้ว / กำลังใช้งาน" },
+  { value: "completed", label: "ใช้งานเสร็จแล้ว" },
+  { value: "cancelled", label: "ยกเลิกการจอง" },
   { value: "no_show", label: "ไม่มาใช้งาน" },
 ];
 
 const STATUS_LABELS = {
-  reserved: "Reserved",
-  checked_in: "Checked in",
-  completed: "Completed",
-  cancelled: "Cancelled",
-  no_show: "No-show",
+  reserved: "จองสำเร็จ / รอเช็กอิน",
+  checked_in: "เช็กอินแล้ว / กำลังใช้งาน",
+  completed: "ใช้งานเสร็จแล้ว",
+  cancelled: "ยกเลิกการจอง",
+  no_show: "ไม่มาใช้งาน",
 };
 
 const VALID_STATUSES = Object.keys(STATUS_LABELS);

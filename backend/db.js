@@ -2,6 +2,10 @@
 const mysql = require("mysql2");
 const fs = require("fs");
 const path = require("path");
+const {
+  ACTIVE_BOOKING_STATUSES,
+  TEACHER_USAGE_STATUSES
+} = require("./utils/booking-status");
 
 const db = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
@@ -445,7 +449,7 @@ function addBooking(booking, callback) {
          FROM bookings
          WHERE room_id = ?
            AND booking_date = ?
-           AND status IN ('reserved', 'confirmed', 'checked_in')
+             AND status IN (?, ?)
            AND start_time < ?
            AND end_time > ?
          LIMIT 1
@@ -453,6 +457,7 @@ function addBooking(booking, callback) {
         [
           room.room_id,
           validated.date,
+          ...ACTIVE_BOOKING_STATUSES,
           validated.endTime,
           validated.startTime
         ]
@@ -473,11 +478,12 @@ function addBooking(booking, callback) {
            WHERE user_id = ?
              AND booking_date >= ?
              AND booking_date < ?
-             AND status IN ('reserved', 'confirmed', 'checked_in', 'completed')`,
+             AND status IN (?, ?, ?)`,
           [
             userId,
             `${validated.date.slice(0, 7)}-01`,
-            `${getNextMonth(validated.date.slice(0, 7))}-01`
+            `${getNextMonth(validated.date.slice(0, 7))}-01`,
+            ...TEACHER_USAGE_STATUSES
           ]
         );
 
@@ -553,7 +559,7 @@ function getBookingsByUser(userId, callback) {
        FROM bookings b
        JOIN rooms r ON b.room_id = r.room_id
        WHERE b.user_id = ?
-         AND b.status NOT IN ('cancelled', 'no_show')
+         AND b.status <> 'cancelled'
        ORDER BY b.booking_date DESC, b.start_time DESC`,
       [userId]
     )
@@ -646,7 +652,7 @@ function deleteBooking(bookingId, userId, callback) {
 
       const booking = rows[0];
 
-      if (!["reserved", "confirmed"].includes(booking.status)) {
+      if (booking.status !== "reserved") {
         throw new Error("รายการจองนี้ไม่สามารถยกเลิกได้");
       }
 
@@ -708,7 +714,7 @@ function checkInBooking(bookingId, userId, callback) {
 
       const booking = rows[0];
 
-      if (booking.status !== "reserved" && booking.status !== "confirmed") {
+      if (booking.status !== "reserved") {
         throw new Error("รายการจองนี้ไม่สามารถเช็กอินได้");
       }
 
@@ -781,7 +787,7 @@ async function updateBookingStatuses() {
     const [missedBookings] = await connection.execute(
       `SELECT booking_id, user_id
        FROM bookings
-       WHERE status IN ('reserved', 'confirmed')
+      WHERE status = 'reserved'
          AND TIMESTAMP(booking_date, start_time)
              <= DATE_SUB(?, INTERVAL ? MINUTE)
        FOR UPDATE`,
@@ -832,7 +838,7 @@ async function updateBookingStatuses() {
          SET status = 'no_show',
              updated_at = CURRENT_TIMESTAMP
          WHERE booking_id = ?
-           AND status IN ('reserved', 'confirmed')`,
+           AND status = 'reserved'`,
         [booking.booking_id]
       );
     }

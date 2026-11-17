@@ -328,11 +328,6 @@
   color: #9a6b0b;
 }
 
-.admin-bookings-status.status-confirmed {
-  background: #eaf1ff;
-  color: #315da8;
-}
-
 .admin-bookings-status.status-checked_in {
   background: #e4f5ff;
   color: #1876a5;
@@ -351,6 +346,11 @@
 .admin-bookings-status.status-no_show {
   background: #f0eafa;
   color: #7650a4;
+}
+
+.admin-bookings-status.status-unknown {
+  background: #f8fafc;
+  color: #475569;
 }
 
 .admin-bookings-detail-button {

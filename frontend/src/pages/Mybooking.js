@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "../css/homepage.css";
 import "../css/Mybooking.css";
 import Navbar from "../components/navbar";
-
-const API_BASE_URL = "http://localhost:5001";
+import API_BASE_URL from "../services/api";
 
 // พิกัดเช็กอิน
 const CHECKIN_LOCATION = {
@@ -132,21 +131,26 @@ function getBookingEnd(booking) {
   return Number.isNaN(end.getTime()) ? null : end;
 }
 
-// แปลง status ของ DB เป็นป้ายที่แสดง
+// แปลง Booking Status จาก API เป็นป้ายที่แสดง
 function getStatus(status) {
-  const value = String(status || "confirmed").toLowerCase();
+  const value = String(status ?? "").trim().toLowerCase();
 
   switch (value) {
-    case "cancelled":
-      return { label: "Cancelled", className: "cancelled" };
-    case "no_show":
-      return { label: "No show", className: "noshow" };
+    case "reserved":
+      return { label: "จองสำเร็จ / รอเช็กอิน", className: "reserved" };
     case "checked_in":
-      return { label: "Using", className: "using" };
+      return { label: "เช็กอินแล้ว / กำลังใช้งาน", className: "checked_in" };
     case "completed":
-      return { label: "Completed", className: "completed" };
+      return { label: "ใช้งานเสร็จแล้ว", className: "completed" };
+    case "cancelled":
+      return { label: "ยกเลิกการจอง", className: "cancelled" };
+    case "no_show":
+      return { label: "ไม่มาใช้งาน", className: "no_show" };
     default:
-      return { label: "Confirmed", className: "confirmed" };
+      return {
+        label: value ? `สถานะการจองไม่รู้จัก: ${value}` : "ไม่พบสถานะการจอง",
+        className: "unknown"
+      };
   }
 }
 
@@ -156,16 +160,16 @@ function getEffectiveStatus(booking, checkedIn, now) {
 
   // เช็กอินสำเร็จแล้วแต่ข้อมูลจากเซิร์ฟเวอร์ยังไม่อัปเดต
   const effective =
-    base.className === "confirmed" && checkedIn
-      ? { label: "Using", className: "using" }
+    base.className === "reserved" && checkedIn
+      ? { label: "เช็กอินแล้ว / กำลังใช้งาน", className: "checked_in" }
       : base;
 
   // กำลังใช้งานแต่เลยเวลาสิ้นสุดแล้ว -> Completed
-  if (effective.className === "using") {
+  if (effective.className === "checked_in") {
     const end = getBookingEnd(booking);
 
     if (end && now > end.getTime()) {
-      return { label: "Completed", className: "completed" };
+      return { label: "ใช้งานเสร็จแล้ว", className: "completed" };
     }
   }
 
@@ -310,8 +314,8 @@ function Mybooking() {
       return;
     }
 
-    // เช็กอินได้เฉพาะรายการที่ยังเป็น Confirmed
-    if (effectiveStatus.className !== "confirmed") {
+    // เช็กอินได้เฉพาะรายการที่ยังเป็น Reserved
+    if (effectiveStatus.className !== "reserved") {
       setError("This booking is not eligible for check-in.");
       return;
     }
@@ -592,14 +596,14 @@ function Mybooking() {
     })
     .filter((item) => item.status.className !== "cancelled");
 
-  // รายการปัจจุบัน (Confirmed / Using)
+  // รายการปัจจุบัน (Reserved / Checked in)
   const activeItems = items.filter(
-    (item) => !["completed", "noshow"].includes(item.status.className)
+    (item) => !["completed", "no_show"].includes(item.status.className)
   );
 
   // ประวัติการจอง (Completed / No show) เรียงล่าสุดก่อน
   const historyItems = items
-    .filter((item) => ["completed", "noshow"].includes(item.status.className))
+    .filter((item) => ["completed", "no_show"].includes(item.status.className))
     .sort(
       (a, b) =>
         (getBookingEnd(b.booking)?.getTime() || 0) -
@@ -614,8 +618,8 @@ function Mybooking() {
     const bookingDate = booking.booking_date || booking.date || booking.bookingDate;
     const rawId = getBookingId(booking);
 
-    // เช็กอิน/ยกเลิกได้เฉพาะก่อนเริ่มใช้งาน (Confirmed)
-    const canAct = status.className === "confirmed";
+    // เช็กอิน/ยกเลิกได้เฉพาะรายการที่ยังเป็น Reserved
+    const canAct = status.className === "reserved";
 
     return (
       <article className="booking-card" key={id}>
@@ -643,7 +647,7 @@ function Mybooking() {
               </div>
             </div>
 
-            {/* ป้ายสถานะ: Confirmed / Using / Completed / No show */}
+            {/* ป้ายสถานะตาม Booking Status */}
             <span className={`booking-status status-${status.className}`}>
               <span className="status-dot" />
               {status.label}
@@ -722,12 +726,12 @@ function Mybooking() {
 
           <span className="booking-footer-note">
             {isHistory
-              ? status.className === "noshow"
+              ? status.className === "no_show"
                 ? "You did not check in for this reservation."
                 : reviewed
                   ? "Thank you for your review."
                   : "How was your experience? Share your feedback."
-              : status.className === "using"
+              : status.className === "checked_in"
                 ? "You are currently using this room."
                 : "Please check in at the venue."}
           </span>

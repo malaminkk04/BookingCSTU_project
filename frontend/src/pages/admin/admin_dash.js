@@ -1,20 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import "../../css/admin/admin_dash.css";
-
-const API_BASE_URL = "http://localhost:5001";
+import API_BASE_URL from "../../services/api";
 
 const STATUS_LABELS = {
-  reserved: "รอดำเนินการ",
-  confirmed: "ยืนยันแล้ว",
-  checked_in: "เช็กอินแล้ว",
-  completed: "เสร็จสิ้น",
-  cancelled: "ยกเลิก",
-  no_show: "ไม่มาเช็กอิน",
+  reserved: "จองสำเร็จ / รอเช็กอิน",
+  checked_in: "เช็กอินแล้ว / กำลังใช้งาน",
+  completed: "ใช้งานเสร็จแล้ว",
+  cancelled: "ยกเลิกการจอง",
+  no_show: "ไม่มาใช้งาน",
 };
 
 const STATUS_ORDER = [
   "reserved",
-  "confirmed",
   "checked_in",
   "completed",
   "cancelled",
@@ -59,6 +56,14 @@ function getPercent(value, total) {
 
 function getRangeLabel(range) {
   return RANGE_OPTIONS.find((option) => option.value === range)?.label || "";
+}
+
+function getUnknownStatusError(statuses) {
+  const names = statuses
+    .map((item) => (typeof item === "string" ? item : item.status))
+    .filter(Boolean);
+
+  return `พบสถานะการจองที่ไม่รู้จัก: ${names.join(", ")}`;
 }
 
 function RangeSelect({ label, value, onChange }) {
@@ -129,6 +134,10 @@ function AdminDashboard() {
       setError("");
 
       const result = await fetchAdminApi("/api/admin/dashboard", signal);
+      if (result.unknownStatuses?.length) {
+        throw new Error(getUnknownStatusError(result.unknownStatuses));
+      }
+
       setDashboard(result);
     } catch (err) {
       if (err.name !== "AbortError") {
@@ -160,6 +169,18 @@ function AdminDashboard() {
         );
 
         const counts = result.statusCounts || {};
+        const unknownStatuses = [
+          ...(Array.isArray(result.unknownStatuses)
+            ? result.unknownStatuses
+            : []),
+          ...Object.keys(counts).filter(
+            (status) => !STATUS_ORDER.includes(status)
+          ),
+        ];
+
+        if (unknownStatuses.length > 0) {
+          throw new Error(getUnknownStatusError(unknownStatuses));
+        }
 
         setStatusData(
           STATUS_ORDER.map((status) => ({

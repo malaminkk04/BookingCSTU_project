@@ -2,8 +2,7 @@ import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "../css/login.css";
-
-const API_BASE_URL = "http://localhost:5001";
+import API_BASE_URL from "../services/api";
 
 const normalizeFaculty = (value) =>
   String(value || "")

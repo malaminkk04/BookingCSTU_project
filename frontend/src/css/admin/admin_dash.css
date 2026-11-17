@@ -332,14 +332,6 @@
   background: #e5a23c;
 }
 
-.admin-status-dot.status-confirmed {
-  background: #5578c5;
-}
-
-.admin-status-fill.status-confirmed {
-  background: #5578c5;
-}
-
 .admin-status-dot.status-checked_in {
   background: #21a3a0;
 }
@@ -565,11 +557,6 @@
 .admin-booking-status.status-reserved {
   background: #fff4df;
   color: #a66a12;
-}
-
-.admin-booking-status.status-confirmed {
-  background: #eaf0ff;
-  color: #3d5fa8;
 }
 
 .admin-booking-status.status-checked_in {

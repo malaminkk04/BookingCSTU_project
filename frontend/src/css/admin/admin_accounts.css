@@ -573,8 +573,7 @@
   white-space: nowrap;
 }
 
-.admin-accounts-booking-status.status-no_show,
-.admin-accounts-booking-status.status-rejected {
+.admin-accounts-booking-status.status-no_show {
   border-color: #fecdca;
   background: #fef3f2;
   color: #b42318 !important;
@@ -586,14 +585,7 @@
   color: #64748b !important;
 }
 
-.admin-accounts-booking-status.status-pending {
-  border-color: #fde68a;
-  background: #fffbeb;
-  color: #92400e !important;
-}
-
-.admin-accounts-booking-status.status-confirmed,
-.admin-accounts-booking-status.status-approved {
+.admin-accounts-booking-status.status-reserved {
   border-color: #bfdbfe;
   background: #eff6ff;
   color: #1d4ed8 !important;

@@ -1,10 +1,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import "../../css/admin/admin_support.css";
-
-// กำหนดค่าสำหรับเชื่อมต่อ Backend
-// URL หลักของ Backend
-const API_BASE_URL = "http://localhost:5001";
+import API_BASE_URL from "../../services/api";
 
 // กำหนดแท็บประเภทข้อมูลที่ Admin สามารถจัดการได้
 const SECTIONS = [

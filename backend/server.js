@@ -11,6 +11,15 @@ const {
   validateRoomImage,
   getManagedRoomImageFilename
 } = require("./utils/room-image");
+const {
+  BOOKING_STATUSES,
+  summarizeBookingStatuses
+} = require("./utils/booking-status");
+const {
+  LOGIN_RESTRICTION_MESSAGE,
+  authenticateLogin,
+  logTuAffiliationDebug
+} = require("./utils/login-flow");
 
 const {
   db,
@@ -32,12 +41,6 @@ const ROOM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 const TU_AUTH_URL = "https://restapi.tu.ac.th/api/v1/auth/Ad/verify";
 
-const DEMO_TEACHER_USERNAME = "teacher_demo";
-const DEMO_TEACHER_PASSWORD = "TeacherDemo123!";
-
-const DEMO_ADMIN_USERNAME = "admin_demo";
-const DEMO_ADMIN_PASSWORD = "AdminDemo123!";
-
 const sessions = new Map();
 
 app.use(cors());
@@ -52,22 +55,6 @@ app.use(
   })
 );
 
-function isDevelopment() {
-  return process.env.NODE_ENV !== "production";
-}
-
-function isAllowedFaculty(faculty) {
-  const normalized = String(faculty || "")
-    .trim()
-    .replace(/\s+/g, "")
-    .toLowerCase();
-
-  return (
-    normalized === "คณะวิทยาศาสตร์และเทคโนโลยี" ||
-    normalized === "facultyofscienceandtechnology"
-  );
-}
-
 function getUserIdentifier(body = {}) {
   return String(
     body.identifier ||
@@ -76,11 +63,6 @@ function getUserIdentifier(body = {}) {
     body.usernameOrEmail ||
     ""
   ).trim();
-}
-
-function getUserRole(accountType) {
-  const type = String(accountType || "").trim().toLowerCase();
-  return type === "student" ? "student" : "teacher";
 }
 
 function createToken(user) {
@@ -317,6 +299,7 @@ async function verifyWithTuApi(identifier, password) {
     );
   }
 
+  const responsePath = result.data ? "data" : result.Data ? "Data" : "$";
   const data = result.data || result.Data || result;
 
   const success =
@@ -334,12 +317,10 @@ async function verifyWithTuApi(identifier, password) {
     );
   }
 
-  return data;
+  return { data, responsePath };
 }
 
-function sendLoginSuccess(res, user) {
-  const token = createToken(user);
-
+function sendLoginSuccess(res, user, token) {
   return res.json({
     success: true,
     message: "Login successful",
@@ -386,189 +367,43 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    const normalizedIdentifier = identifier.toLowerCase();
-
-    // Demo Admin: development only
-    if (
-      isDevelopment() &&
-      normalizedIdentifier === DEMO_ADMIN_USERNAME.toLowerCase()
-    ) {
-      if (password !== DEMO_ADMIN_PASSWORD) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid demo admin password"
-        });
+    const loginResult = await authenticateLogin(
+      { identifier, password },
+      {
+        resolveLoginIdentifier,
+        verifyWithTuApi,
+        saveUser,
+        createToken,
+        debugTuAffiliation: (data, responsePath) =>
+          logTuAffiliationDebug(data, responsePath, { env: process.env })
       }
+    );
 
-      const adminDb = db.promise();
-
-      await adminDb.execute(
-        `INSERT INTO users (
-          tu_id,
-          name,
-          email,
-          username,
-          displayname_th,
-          faculty,
-          major,
-          role,
-          access_level
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'admin', 'admin')
-        ON DUPLICATE KEY UPDATE
-          name = VALUES(name),
-          email = VALUES(email),
-          username = VALUES(username),
-          displayname_th = VALUES(displayname_th),
-          faculty = VALUES(faculty),
-          major = VALUES(major),
-          role = 'admin',
-          access_level = 'admin'`,
-        [
-          "ADMINDEMO001",
-          "ผู้ดูแลระบบตัวอย่าง",
-          "admin.demo@example.com",
-          DEMO_ADMIN_USERNAME,
-          "ผู้ดูแลระบบตัวอย่าง",
-          "คณะวิทยาศาสตร์และเทคโนโลยี",
-          "Computer Science"
-        ]
-      );
-
-      const [rows] = await adminDb.execute(
-        `SELECT *
-         FROM users
-         WHERE tu_id = ?
-         LIMIT 1`,
-        ["ADMINDEMO001"]
-      );
-
-      if (!rows.length) {
-        throw new Error("Unable to create or load demo admin");
-      }
-
-      return sendLoginSuccess(res, {
-        ...rows[0],
-        role: "admin",
-        access_level: "admin"
-      });
-    }
-
-    // Demo Teacher: development only
-    if (
-      isDevelopment() &&
-      normalizedIdentifier === DEMO_TEACHER_USERNAME.toLowerCase()
-    ) {
-      if (password !== DEMO_TEACHER_PASSWORD) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid demo teacher password"
-        });
-      }
-
-      const teacherData = {
-        username: DEMO_TEACHER_USERNAME,
-        tu_id: "TEACHER001",
-        email: "teacher.demo@example.com",
-        displayname_th: "อาจารย์ตัวอย่าง",
-        faculty: "คณะวิทยาศาสตร์และเทคโนโลยี",
-        major: "Computer Science",
-        role: "teacher"
-      };
-
-      const savedUser = await saveUser(teacherData);
-
-      return sendLoginSuccess(res, {
-        ...savedUser,
-        username: teacherData.username,
-        tu_id: teacherData.tu_id,
-        email: teacherData.email,
-        name: teacherData.displayname_th,
-        displayname_th: teacherData.displayname_th,
-        faculty: teacherData.faculty,
-        major: teacherData.major,
-        role: teacherData.role,
-        access_level: savedUser.access_level || "user"
-      });
-    }
-
-    const loginIdentifier = await resolveLoginIdentifier(identifier);
-    const data = await verifyWithTuApi(loginIdentifier, password);
-
-    const faculty =
-      data.faculty ||
-      data.Faculty ||
-      data.faculty_name ||
-      data.facultyName ||
-      "";
-
-    if (!isAllowedFaculty(faculty)) {
+    if (!loginResult.authorized) {
       return res.status(403).json({
         success: false,
-        message: "อนุญาตเฉพาะผู้ใช้คณะวิทยาศาสตร์และเทคโนโลยี"
+        message: LOGIN_RESTRICTION_MESSAGE
       });
     }
 
-    const username = String(
-      data.username ||
-      data.username_en ||
-      data.username_th ||
-      loginIdentifier
-    ).trim();
-
-    const tuId = String(
-      data.id ||
-      data.tu_id ||
-      data.username ||
-      loginIdentifier
-    ).trim();
-
-    const accountType =
-      data.type ||
-      data.account_type ||
-      data.accountType ||
-      data.user_type ||
-      data.userType ||
-      data.status ||
-      "";
-
-    const role = getUserRole(accountType);
-
-    const userData = {
-      username,
-      tu_id: tuId,
-      email: data.email || data.email_address || null,
-      displayname_th:
-        data.displayname_th ||
-        data.displayname ||
-        data.name_th ||
-        data.name ||
-        username,
-      faculty,
-      major:
-        data.department ||
-        data.department_name ||
-        data.major ||
-        null,
-      role
-    };
-
-    const savedUser = await saveUser(userData);
-
-    return sendLoginSuccess(res, {
-      ...savedUser,
-      username: userData.username,
-      tu_id: userData.tu_id,
-      email: userData.email || savedUser.email,
-      name: userData.displayname_th,
-      displayname_th: userData.displayname_th,
-      faculty: userData.faculty,
-      major: userData.major,
-      role: userData.role,
-      access_level: savedUser.access_level || "user"
-    });
-  } catch (error) {
-    console.error("Login error:", error.message);
+    return sendLoginSuccess(
+      res,
+      {
+        ...loginResult.savedUser,
+        username: loginResult.userData.username,
+        tu_id: loginResult.userData.tu_id,
+        email: loginResult.userData.email || loginResult.savedUser.email,
+        name: loginResult.userData.displayname_th,
+        displayname_th: loginResult.userData.displayname_th,
+        faculty: loginResult.userData.faculty,
+        major: loginResult.userData.major,
+        role: loginResult.userData.role,
+        access_level: loginResult.savedUser.access_level || "user"
+      },
+      loginResult.token
+    );
+  } catch {
+    console.error("Login error: authentication failed");
 
     return res.status(401).json({
       success: false,
@@ -654,24 +489,8 @@ app.get(
         )
       ]);
 
-      const statusCounts = {
-        reserved: 0,
-        checked_in: 0,
-        completed: 0,
-        cancelled: 0,
-        no_show: 0
-      };
-
-      for (const row of statusRows) {
-        if (
-          Object.prototype.hasOwnProperty.call(
-            statusCounts,
-            row.status
-          )
-        ) {
-          statusCounts[row.status] = Number(row.total);
-        }
-      }
+      const { statusCounts, unknownStatuses } =
+        summarizeBookingStatuses(statusRows);
 
       return res.json({
         success: true,
@@ -684,6 +503,7 @@ app.get(
           todayBookingsCount: todayBookings.length
         },
         statusCounts,
+        unknownStatuses,
         todayBookings
       });
     } catch (error) {
@@ -768,27 +588,18 @@ app.get(
         GROUP BY status
       `);
 
-      const statusCounts = {
-        reserved: 0,
-        confirmed: 0,
-        checked_in: 0,
-        completed: 0,
-        cancelled: 0,
-        no_show: 0
-      };
-
-      for (const row of rows) {
-        if (Object.prototype.hasOwnProperty.call(statusCounts, row.status)) {
-          statusCounts[row.status] = Number(row.total);
-        }
-      }
+      const { statusCounts, unknownStatuses } =
+        summarizeBookingStatuses(rows);
 
       return res.json({
         success: true,
         range: selected.range,
         label: condition.label,
-        total: Object.values(statusCounts).reduce((sum, value) => sum + value, 0),
-        statusCounts
+        total:
+          Object.values(statusCounts).reduce((sum, value) => sum + value, 0) +
+          unknownStatuses.reduce((sum, row) => sum + row.total, 0),
+        statusCounts,
+        unknownStatuses
       });
     } catch (error) {
       console.error("Admin analytics status error:", error);
@@ -1751,14 +1562,6 @@ app.get(
       requestUrl: req.originalUrl
       });
 
-      const allowedStatuses = [
-        "reserved",
-        "checked_in",
-        "completed",
-        "cancelled",
-        "no_show",
-      ];
-
       const conditions = [];
       const parameters = [];
 
@@ -1799,7 +1602,7 @@ app.get(
       if (status && String(status) !== "all") {
         const requestedStatus = String(status);
 
-        if (!allowedStatuses.includes(requestedStatus)) {
+        if (!BOOKING_STATUSES.includes(requestedStatus)) {
           return res.status(400).json({
             success: false,
             message: "สถานะการจองไม่ถูกต้อง",
@@ -2751,12 +2554,6 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log(`Health check: http://localhost:${PORT}/health`);
-
-      if (isDevelopment()) {
-        console.log("Development mode enabled");
-        console.log(`Demo teacher username: ${DEMO_TEACHER_USERNAME}`);
-        console.log(`Demo admin username: ${DEMO_ADMIN_USERNAME}`);
-      }
 
       setInterval(() => {
         updateBookingStatuses().catch(error => {

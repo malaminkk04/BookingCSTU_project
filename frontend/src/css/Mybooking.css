@@ -261,10 +261,12 @@
   white-space: nowrap;
 }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.status-confirmed { border-color: #c7e8d5; background: #effaf3; color: #288052; }
-.status-pending { border-color: #f5d66e; background: #fff7d8; color: #8b6b13; }
+.status-reserved { border-color: #c7e8d5; background: #effaf3; color: #288052; }
+.status-checked_in { border-color: #d3e0f7; background: #e8f0fe; color: #273c70; }
 .status-cancelled { border-color: #f0d1d1; background: #fff3f3; color: #b24b4b; }
 .status-completed { border-color: #dce1eb; background: #f2f4f8; color: #697487; }
+.status-no_show { border-color: #f0d1d1; background: #fff3f3; color: #b24b4b; }
+.status-unknown { border-color: #e2e8f0; background: #f8fafc; color: #475569; }
 
 .booking-details {
   display: grid;
@@ -477,15 +479,15 @@
   }
 }
 
-/* ---------- สถานะ Using ---------- */
+/* ---------- สถานะ Checked in ---------- */
 
-.mybooking-page .booking-status.status-using {
+.mybooking-page .booking-status.status-checked_in {
   background: #e8f0fe;
   border-color: #d3e0f7;
   color: #273c70;
 }
 
-.mybooking-page .status-using .status-dot {
+.mybooking-page .status-checked_in .status-dot {
   background: #3972c5;
 }
 

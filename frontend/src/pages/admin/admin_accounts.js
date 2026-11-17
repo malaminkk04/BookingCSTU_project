@@ -2,8 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../../css/admin/admin_accounts.css";
-
-const API_BASE_URL = "http://localhost:5001";
+import API_BASE_URL from "../../services/api";
 
 const ROLE_LABELS = {
   student: "นักศึกษา",
@@ -12,13 +11,10 @@ const ROLE_LABELS = {
 };
 
 const BOOKING_STATUS_LABELS = {
-  pending: "รอดำเนินการ",
-  confirmed: "ยืนยันแล้ว",
-  approved: "อนุมัติแล้ว",
-  checked_in: "เช็กอินแล้ว",
-  completed: "เสร็จสิ้น",
-  cancelled: "ยกเลิกแล้ว",
-  rejected: "ไม่อนุมัติ",
+  reserved: "จองสำเร็จ / รอเช็กอิน",
+  checked_in: "เช็กอินแล้ว / กำลังใช้งาน",
+  completed: "ใช้งานเสร็จแล้ว",
+  cancelled: "ยกเลิกการจอง",
   no_show: "ไม่มาใช้งาน",
 };
 
@@ -98,7 +94,10 @@ function normalizeBookingStatus(value) {
 }
 
 function getBookingStatusLabel(status) {
-  return BOOKING_STATUS_LABELS[status] || status || "-";
+  return (
+    BOOKING_STATUS_LABELS[status] ||
+    `สถานะการจองไม่รู้จัก: ${status || "(ว่าง)"}`
+  );
 }
 
 export default function AdminAccounts() {
