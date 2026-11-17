@@ -29,6 +29,13 @@ fields or duplicated in the review row.
 
 ## Tables and relationships
 
+`schema/` is the canonical home for current table definitions. Do not create
+parallel definitions under a `tables/` directory. Legacy table scripts were
+removed after their current DDL was consolidated into these schema files.
+Legacy room catalog rows are retained separately in `seeds/rooms.sql`; the
+old review maintenance/query script is retained under
+`migrations/legacy_reviews_reference.sql` and is not part of fresh schema setup.
+
 - `users`: TU identity, profile, application role/access level, no-show count,
   suspension, and timestamps. Passwords are not stored.
 - `rooms`: room details, availability, type, optional image URL, and
@@ -60,8 +67,9 @@ where applicable (`users.tu_id`, `users.name`, `users.email`, room fields, and
 booking date/time/status fields). Additional string sizes are schema proposals,
 not facts established by the current backend:
 
-`users.email` remains `NOT NULL`, as in the current Users SQL source. The test
-seed supplies synthetic addresses for every account.
+`users.email` is nullable because the current authentication upsert permits
+TU responses without an email address. The unique index still prevents
+duplicate non-NULL addresses. The test seed supplies synthetic addresses.
 
 - `username`: `VARCHAR(100)`
 - `displayname_th`, `faculty`, `major`: `VARCHAR(255)`
@@ -81,10 +89,11 @@ supporting Thai text. DDL uses InnoDB, ENUMs, ordinary indexes, and foreign
 keys; it avoids version-dependent `CHECK` constraints. Verify the actual
 dedicated test server version before use.
 
-## DDL order
+## Fresh database setup
 
-Use a new, empty `BookingCSTU_test` database selected by the test environment.
-Apply these files in order:
+`database.sql` is a MySQL-client bootstrap for a **new, empty, dedicated test
+database** named `BookingCSTU_test`. It creates that database if absent, selects
+it, then sources the canonical schema files in this order:
 
 1. `schema/01_users.sql`
 2. `schema/02_rooms.sql`
@@ -94,34 +103,86 @@ Apply these files in order:
 6. `schema/06_complaints.sql`
 7. `schema/07_repair_reports.sql`
 
-Do not run the existing `database.sql` bootstrap: it drops and recreates
-`BookingCSTU_project`. Do not run Legacy Migrations against this fresh schema;
-in particular, the room-image and booking-status migrations are not part of
-test-database creation.
+Run the MySQL client from `backend/database` so the relative `SOURCE schema/...`
+paths resolve. After verifying the target is absent or empty and the account is
+restricted to the test database, the MySQL-client invocation is:
 
-## Test seed
+```sh
+cd backend/database
+mysql --user=TEST_DB_USER --password < database.sql
+```
 
-`seeds/test_seed.sql` contains synthetic users, rooms, bookings, reviews,
-complaints, and repair reports only. Run it once, after all DDL, against a
-fresh dedicated test database. The test rooms use `image_url = NULL`; no
-uploaded images or real TU accounts are needed. Seeded room reviews reference
-completed bookings and use each booking at most once.
+`--password` prompts interactively; do not place a password in the command.
+If `BookingCSTU_test` exists and already contains tables, stop: the schema DDL
+is not idempotent and may stop after creating some missing tables. The
+bootstrap has no `DROP DATABASE` and does not erase existing rows. It is not a
+migration and must never be used for `BookingCSTU_project` or Production.
 
-The SQL file does not create a database or switch databases. Before any
-integration-test process is allowed to apply the seed or start the backend:
+The individual files in `schema/` contain `CREATE TABLE` DDL only and do not
+create or select a database. Their order above follows the foreign-key
+dependencies. Do not apply them directly to an existing application database.
 
-1. Require `NODE_ENV=test`.
-2. Require an explicitly supplied `DB_NAME=BookingCSTU_test`; do not use the
-   backend's current default database name.
-3. Connect with a database account restricted to the test database.
-4. Verify the connected target with `SELECT DATABASE()` and abort on any
-   mismatch before running setup, seed, status updates, or starting the API.
+## Existing database: migrations
 
-The current backend does not implement this startup guard or a dedicated
-test-authentication provider. Do not start it against a database until those
-guards are implemented and reviewed. Test accounts in the seed are profile
-fixtures, not login credentials; test authentication must not call TU Auth or
-use a production account.
+There is no automatic migration runner. Each migration is a separate,
+manual, schema-specific operation; **do not execute all files in a directory
+as a batch**. Before any migration, confirm the selected database and exact
+live schema, take and verify a restorable backup outside the repository, stop
+application writers/jobs as directed by that migration, and follow its full
+preflight and postflight instructions. Never run a migration on Production
+without a separately reviewed change plan and recovery window.
+
+- `migrations/20261115_add_rooms_image_url.sql`: adds one nullable room image
+  column. Apply only once after confirming the column is absent.
+- `migrations/20261116_standardize_booking_status.sql`: changes the Booking
+  status ENUM and maps legacy `confirmed` rows to `reserved`. Its commented
+  preflight is mandatory; DDL can implicitly commit, so it is not rollback-safe
+  as a single transaction. Do not rerun after the canonical ENUM is present.
+- `migrations/20261117_phase6_live_schema_alignment.sql`: one-time alignment
+  for a specifically inspected legacy schema. It creates review tables, copies
+  eligible legacy reviews, changes columns/indexes, and drops/recreates Booking
+  foreign keys. Follow every in-file preflight and verified-backup requirement.
+- `migrations/legacy_reviews_reference.sql`: legacy mixed reference script,
+  **not a read-only inspection script**. It selects `BookingCSTU_project`, adds
+  columns/indexes/constraints, and updates review rows. Do not run it as a
+  bootstrap or migration batch; inspect and review each statement against the
+  actual legacy schema first.
+
+## Read-only inspection
+
+There is no standalone inspection bundle. Use individually reviewed `SELECT`,
+`SHOW` and `INFORMATION_SCHEMA` queries against an explicitly verified target.
+The commented preflight/postflight queries inside the versioned migrations are
+examples only and do not run unless executed separately. Do not use
+`legacy_reviews_reference.sql` for inspection because it also contains DDL and
+DML. Never include personal values in audit output; report counts and schema
+metadata only.
+
+Typical read-only checks include:
+
+```sql
+SELECT DATABASE();
+SHOW TABLES;
+SHOW CREATE TABLE bookings;
+SHOW COLUMNS FROM bookings;
+SHOW INDEX FROM bookings;
+SELECT status, COUNT(*) AS total FROM bookings GROUP BY status;
+```
+
+## Seeds
+
+- `seeds/rooms.sql` inserts the room catalog. It is data-changing, has no
+  duplicate-key update guard, and is intended only for a fresh/dedicated test
+  database. It may fail if room keys already exist.
+- `seeds/test_seed.sql` inserts synthetic users, rooms, bookings, reviews,
+  complaints, and repair reports. Run once only, after the fresh schema, in a
+  dedicated test database. It has no rerun/upsert guard and is not production
+  data.
+
+Neither seed is part of `database.sql` or is run automatically by Backend
+startup. The Backend currently has no test-database startup guard; do not start
+it against a test database until its connection target and scheduled-job
+effects have been independently verified.
 
 ## Implementation gaps and decisions
 
@@ -144,10 +205,21 @@ a unique index. `updated_at` is omitted from complaints and repair reports
 because the current workflows only require creation time and status updates;
 add it only if the product needs status-change timestamps.
 
-## Safety
+## SQL safety matrix
 
-These files are for a dedicated test database only. Never apply them to
-`BookingCSTU_project` or a production database. There is no `DROP DATABASE`,
-`DROP TABLE`, hard-coded `USE`, credential, production seed, or legacy-data
-migration in this schema set. Creating a database, applying DDL, seeding, and
-starting tests require separate authorization.
+| SQL file/group | Purpose | Fresh setup | Existing DB | Data-changing / destructive behavior |
+|---|---|---|---|---|
+| `database.sql` | Fresh test bootstrap | Yes, empty `BookingCSTU_test` only | No | Creates/selects test DB and creates tables; no drop/reset; may partially add missing tables if target is non-empty |
+| `schema/01_users.sql`–`07_repair_reports.sql` | Canonical table DDL | Yes, in listed order | No | `CREATE TABLE`; no row DML; not idempotent |
+| `migrations/20261115_add_rooms_image_url.sql` | Add room image column | No | Yes, after preflight | `ALTER TABLE`; fails if column already exists |
+| `migrations/20261116_standardize_booking_status.sql` | Standardize Booking status | No | Yes, one-time and gated | `ALTER TABLE` and `UPDATE bookings`; may implicitly commit |
+| `migrations/20261117_phase6_live_schema_alignment.sql` | Align inspected legacy schema | No | Yes, only exact preflight target | Creates tables, copies rows, alters columns/keys and replaces FKs; not safe to rerun blindly |
+| `migrations/legacy_reviews_reference.sql` | Historical review reference | No | Not approved as-is | Hard-coded `USE`, `ALTER`, `UPDATE`, index/FK creation; mixed DDL/DML, not read-only |
+| `seeds/rooms.sql` | Room catalog seed | Test DB only | No | `INSERT`; may fail on duplicate keys |
+| `seeds/test_seed.sql` | Synthetic integration fixtures | Test DB only | No | Multiple `INSERT`s; run once, no rerun guard |
+
+No setup, migration, or seed file is invoked by Backend startup. Never run
+`database.sql`, a migration, or a seed against `BookingCSTU_project` or
+Production. Creating a database, applying DDL, changing rows, seeding, and
+starting an integration-test Backend require a verified isolated target and a
+separate reviewed plan.

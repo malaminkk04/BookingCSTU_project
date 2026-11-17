@@ -4,8 +4,24 @@ const fs = require("fs");
 const path = require("path");
 const {
   ACTIVE_BOOKING_STATUSES,
-  TEACHER_USAGE_STATUSES
+  BOOKING_QUOTA_STATUSES
 } = require("./utils/booking-status");
+const {
+  BOOKING_QUOTA_LIMIT_MINUTES,
+  normalizeDate,
+  normalizeTime,
+  validateBookingDateTime,
+  getMonthDateBounds,
+  summarizeBookingQuota,
+  calculateMonthlyUsageMinutes
+} = require("./utils/booking-rules");
+const {
+  parseBangkokDateTime,
+  getBangkokDateTimeMinutesBefore,
+  getBookingStartTimestamp,
+  isWithinCheckInWindow,
+  isSuspendedUntilActive
+} = require("./utils/booking-time");
 
 const db = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
@@ -34,9 +50,6 @@ const STUDENT_ROOMS = [
 
 const OPEN_TIME = "08:00:00";
 const CLOSE_TIME = "16:00:00";
-const MIN_BOOKING_MINUTES = 60;
-const MAX_BOOKING_MINUTES = 120;
-const TEACHER_MONTHLY_LIMIT = 20;
 const CHECK_IN_GRACE_MINUTES = 15;
 const CANCEL_LIMIT_MINUTES = 30;
 const NO_SHOW_SUSPENSION_DAYS = 14;
@@ -87,160 +100,6 @@ function getBangkokDate() {
 
 function getBangkokTime() {
   return getBangkokDateTime().slice(11, 19);
-}
-
-function normalizeDate(value) {
-  if (value instanceof Date) {
-    const year = value.getFullYear();
-    const month = String(value.getMonth() + 1).padStart(2, "0");
-    const day = String(value.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-  }
-
-  return String(value || "").trim().slice(0, 10);
-}
-
-function normalizeTime(value) {
-  const time = String(value || "").trim();
-
-  if (/^\d{2}:\d{2}$/.test(time)) {
-    return `${time}:00`;
-  }
-
-  return time;
-}
-
-function isValidDate(date) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return false;
-  }
-
-  const parsed = new Date(`${date}T00:00:00Z`);
-
-  return (
-    !Number.isNaN(parsed.getTime()) &&
-    parsed.toISOString().slice(0, 10) === date
-  );
-}
-
-function isWeekday(date) {
-  const day = new Date(`${date}T00:00:00Z`).getUTCDay();
-
-  return day >= 1 && day <= 5;
-}
-
-function getMinutes(time) {
-  const normalized = normalizeTime(time);
-  const match = normalized.match(/^(\d{2}):(\d{2}):(\d{2})$/);
-
-  if (!match) {
-    return NaN;
-  }
-
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
-  const second = Number(match[3]);
-
-  if (
-    hour > 23 ||
-    minute > 59 ||
-    second > 59
-  ) {
-    return NaN;
-  }
-
-  return hour * 60 + minute;
-}
-
-function addOneMonthClamped(dateString) {
-  const [year, month, day] = dateString.split("-").map(Number);
-
-  const targetDate = new Date(Date.UTC(year, month, 1));
-  const targetYear = targetDate.getUTCFullYear();
-  const targetMonth = targetDate.getUTCMonth();
-
-  const lastDayOfTargetMonth = new Date(
-    Date.UTC(targetYear, targetMonth + 1, 0)
-  ).getUTCDate();
-
-  const targetDay = Math.min(day, lastDayOfTargetMonth);
-
-  return [
-    targetYear,
-    String(targetMonth + 1).padStart(2, "0"),
-    String(targetDay).padStart(2, "0")
-  ].join("-");
-}
-
-function validateBookingDateTime(date, startTime, endTime) {
-  const bookingDate = normalizeDate(date);
-  const start = normalizeTime(startTime);
-  const end = normalizeTime(endTime);
-
-  if (!isValidDate(bookingDate)) {
-    throw new Error("วันที่จองไม่ถูกต้อง");
-  }
-
-  const today = getBangkokDate();
-  const maxBookingDate = addOneMonthClamped(today);
-
-  if (bookingDate < today || bookingDate > maxBookingDate) {
-    throw new Error("สามารถจองล่วงหน้าได้ไม่เกิน 1 เดือน");
-  }
-
-  if (!isWeekday(bookingDate)) {
-    throw new Error("สามารถจองห้องได้เฉพาะวันจันทร์ถึงวันศุกร์");
-  }
-
-  const startMinutes = getMinutes(start);
-  const endMinutes = getMinutes(end);
-
-  if (
-    !Number.isFinite(startMinutes) ||
-    !Number.isFinite(endMinutes)
-  ) {
-    throw new Error("รูปแบบเวลาไม่ถูกต้อง");
-  }
-
-  const openMinutes = getMinutes(OPEN_TIME);
-  const closeMinutes = getMinutes(CLOSE_TIME);
-
-  if (
-    startMinutes < openMinutes ||
-    endMinutes > closeMinutes ||
-    endMinutes <= startMinutes
-  ) {
-    throw new Error("เวลาให้บริการคือ 08:00–16:00 น.");
-  }
-
-  const duration = endMinutes - startMinutes;
-
-  if (
-    duration < MIN_BOOKING_MINUTES ||
-    duration > MAX_BOOKING_MINUTES
-  ) {
-    throw new Error("ระยะเวลาจองต้องอยู่ระหว่าง 1–2 ชั่วโมง");
-  }
-
-  const requestedStart = `${bookingDate} ${start}`;
-  const requestedEnd = `${bookingDate} ${end}`;
-  const now = getBangkokDateTime();
-
-  if (requestedStart <= now) {
-    throw new Error("ไม่สามารถจองวันที่หรือเวลาที่ผ่านมาแล้วได้");
-  }
-
-  if (requestedEnd <= now) {
-    throw new Error("เวลาสิ้นสุดผ่านไปแล้ว ไม่สามารถจองช่วงเวลานี้ได้");
-  }
-
-  return {
-    date: bookingDate,
-    startTime: start,
-    endTime: end,
-    duration
-  };
 }
 
 function getRoomCode(room) {
@@ -391,10 +250,12 @@ function addBooking(booking, callback) {
     const validated = validateBookingDateTime(
       booking.date || booking.booking_date,
       booking.start_time,
-      booking.end_time
+      booking.end_time,
+      getBangkokDateTime()
     );
 
     const connection = await promisePool.getConnection();
+    let bookingQuota;
 
     try {
       await connection.beginTransaction();
@@ -418,15 +279,8 @@ function addBooking(booking, callback) {
         throw new Error("ประเภทผู้ใช้ไม่ถูกต้อง");
       }
 
-      if (user.suspended_until) {
-        const suspendedUntil = new Date(user.suspended_until).getTime();
-
-        if (
-          Number.isFinite(suspendedUntil) &&
-          suspendedUntil > Date.now()
-        ) {
-          throw new Error("บัญชีถูกระงับการจองชั่วคราว เนื่องจากไม่มาเช็กอิน");
-        }
+      if (isSuspendedUntilActive(user.suspended_until)) {
+        throw new Error("บัญชีถูกระงับการจองชั่วคราว เนื่องจากไม่มาเช็กอิน");
       }
 
       const [rooms] = await getRoomByCode(connection, roomCode);
@@ -467,31 +321,35 @@ function addBooking(booking, callback) {
         throw new Error("ห้องนี้มีการจองในช่วงเวลาที่เลือกแล้ว");
       }
 
-      if (role === "teacher") {
+      {
+        const { monthStart, nextMonthStart } = getMonthDateBounds(validated.date);
         const [usage] = await connection.execute(
-          `SELECT
-             COALESCE(
-               SUM(TIME_TO_SEC(TIMEDIFF(end_time, start_time)) / 3600),
-               0
-             ) AS total_hours
+          `SELECT DATE_FORMAT(booking_date, '%Y-%m-%d') AS booking_date,
+                  start_time, end_time, status
            FROM bookings
            WHERE user_id = ?
              AND booking_date >= ?
              AND booking_date < ?
-             AND status IN (?, ?, ?)`,
+             AND status IN (?, ?, ?, ?)`,
           [
             userId,
-            `${validated.date.slice(0, 7)}-01`,
-            `${getNextMonth(validated.date.slice(0, 7))}-01`,
-            ...TEACHER_USAGE_STATUSES
+            monthStart,
+            nextMonthStart,
+            ...BOOKING_QUOTA_STATUSES
           ]
         );
 
-        const usedHours = Number(usage[0]?.total_hours || 0);
-        const requestedHours = validated.duration / 60;
+        const usedMinutes = calculateMonthlyUsageMinutes(
+          usage,
+          validated.date.slice(0, 7)
+        );
+        bookingQuota = summarizeBookingQuota(
+          usedMinutes,
+          validated.duration
+        );
 
-        if (usedHours + requestedHours > TEACHER_MONTHLY_LIMIT) {
-          throw new Error("การจองของอาจารย์ต้องไม่เกิน 20 ชั่วโมงต่อเดือน");
+        if (bookingQuota.exceeded) {
+          throw new Error("การจองต้องไม่เกิน 20 ชั่วโมงต่อเดือน");
         }
       }
 
@@ -522,7 +380,13 @@ function addBooking(booking, callback) {
         start_time: validated.startTime,
         end_time: validated.endTime,
         purpose,
-        status: "reserved"
+        status: "reserved",
+        quota: {
+          month: validated.date.slice(0, 7),
+          limit_minutes: BOOKING_QUOTA_LIMIT_MINUTES,
+          used_minutes: bookingQuota.used_minutes,
+          remaining_minutes: bookingQuota.remaining_minutes
+        }
       };
     } catch (error) {
       await connection.rollback();
@@ -535,13 +399,33 @@ function addBooking(booking, callback) {
   return callbackResult(promise, callback);
 }
 
-function getNextMonth(yearMonth) {
-  const [year, month] = yearMonth.split("-").map(Number);
+function getMonthlyBookingQuota(userId, date = getBangkokDate(), callback) {
+  if (typeof date === "function") {
+    callback = date;
+    date = getBangkokDate();
+  }
+  const { monthStart, nextMonthStart } = getMonthDateBounds(date);
+  const promise = promisePool.execute(
+    `SELECT DATE_FORMAT(booking_date, '%Y-%m-%d') AS booking_date,
+            start_time, end_time, status
+     FROM bookings
+     WHERE user_id = ?
+       AND booking_date >= ?
+       AND booking_date < ?
+       AND status IN (?, ?, ?, ?)`,
+    [userId, monthStart, nextMonthStart, ...BOOKING_QUOTA_STATUSES]
+  ).then(([rows]) => {
+    const usedMinutes = calculateMonthlyUsageMinutes(rows, date.slice(0, 7));
+    const quota = summarizeBookingQuota(usedMinutes);
+    return {
+      month: monthStart.slice(0, 7),
+      limit_minutes: BOOKING_QUOTA_LIMIT_MINUTES,
+      used_minutes: quota.used_minutes,
+      remaining_minutes: quota.remaining_minutes
+    };
+  });
 
-  const nextYear = month === 12 ? year + 1 : year;
-  const nextMonth = month === 12 ? 1 : month + 1;
-
-  return `${nextYear}-${String(nextMonth).padStart(2, "0")}`;
+  return callbackResult(promise, callback);
 }
 
 function getBookingsByUser(userId, callback) {
@@ -566,6 +450,136 @@ function getBookingsByUser(userId, callback) {
     .then(([rows]) => rows);
 
   return callbackResult(promise, callback);
+}
+
+async function getRoomReview(bookingId, userId) {
+  const [rows] = await promisePool.execute(
+    `SELECT
+       b.booking_id,
+       b.status AS booking_status,
+       rr.review_id,
+       rr.rating,
+       rr.comment,
+       rr.status AS review_status,
+       rr.created_at,
+       u.name AS reviewer_name
+     FROM bookings b
+     JOIN users u ON u.user_id = b.user_id
+     LEFT JOIN room_reviews rr ON rr.booking_id = b.booking_id
+     WHERE b.booking_id = ?
+       AND b.user_id = ?
+     LIMIT 1`,
+    [bookingId, userId]
+  );
+
+  if (!rows.length) return null;
+  const row = rows[0];
+  return {
+    booking_id: row.booking_id,
+    booking_status: row.booking_status,
+    reviewed: row.review_id != null,
+    review: row.review_id == null ? null : {
+      review_id: row.review_id,
+      rating: row.rating,
+      comment: row.comment,
+      status: row.review_status,
+      created_at: row.created_at,
+      reviewer_name: row.reviewer_name
+    }
+  };
+}
+
+async function getRoomReviewsByRoom(roomId) {
+  const [roomRows] = await promisePool.execute(
+    `SELECT
+       COALESCE(AVG(rr.rating), 0) AS average_rating,
+       COUNT(DISTINCT rr.review_id) AS review_count,
+       COUNT(DISTINCT CASE WHEN b.status = 'completed' THEN b.booking_id END) AS usage_count
+     FROM rooms r
+     LEFT JOIN bookings b ON b.room_id = r.room_id
+     LEFT JOIN room_reviews rr ON rr.booking_id = b.booking_id AND rr.status = 'visible'
+     WHERE r.room_id = ?
+     GROUP BY r.room_id`,
+    [roomId]
+  );
+  if (!roomRows.length) return null;
+  const [reviews] = await promisePool.execute(
+    `SELECT
+       rr.review_id AS id,
+       u.name AS name,
+       DATE_FORMAT(b.booking_date, '%Y-%m-%d') AS date,
+       rr.rating,
+       rr.comment AS message,
+       'รีวิว' AS type,
+       1 AS verified,
+       rr.created_at
+     FROM room_reviews rr
+     JOIN bookings b ON b.booking_id = rr.booking_id
+     JOIN users u ON u.user_id = b.user_id
+     WHERE b.room_id = ? AND rr.status = 'visible'
+     ORDER BY rr.created_at DESC`,
+    [roomId]
+  );
+  return {
+    average_rating: Number(roomRows[0].average_rating) || 0,
+    review_count: Number(roomRows[0].review_count) || 0,
+    usage_count: Number(roomRows[0].usage_count) || 0,
+    reviews
+  };
+}
+
+async function submitRoomReview(bookingId, userId, rating, comment) {
+  const connection = await promisePool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [bookings] = await connection.execute(
+      `SELECT b.booking_id, b.status, u.name AS reviewer_name
+       FROM bookings b
+       JOIN users u ON u.user_id = b.user_id
+       WHERE b.booking_id = ? AND b.user_id = ?
+       FOR UPDATE`,
+      [bookingId, userId]
+    );
+    if (!bookings.length) {
+      const error = new Error("ไม่พบรายการจองของผู้ใช้นี้");
+      error.statusCode = 404;
+      throw error;
+    }
+    if (bookings[0].status !== "completed") {
+      const error = new Error("รีวิวได้เฉพาะรายการจองที่เสร็จสิ้นแล้ว");
+      error.statusCode = 409;
+      throw error;
+    }
+    const [existing] = await connection.execute(
+      "SELECT review_id FROM room_reviews WHERE booking_id = ? LIMIT 1",
+      [bookingId]
+    );
+    if (existing.length) {
+      const error = new Error("รายการจองนี้ได้รับรีวิวแล้ว");
+      error.statusCode = 409;
+      throw error;
+    }
+    await connection.execute(
+      "INSERT INTO room_reviews (booking_id, rating, comment) VALUES (?, ?, ?)",
+      [bookingId, rating, comment]
+    );
+    await connection.commit();
+    return {
+      booking_id: Number(bookingId),
+      rating,
+      comment,
+      reviewer_name: bookings[0].reviewer_name
+    };
+  } catch (error) {
+    await connection.rollback();
+    if (error.code === "ER_DUP_ENTRY" || error.errno === 1062) {
+      error.statusCode = 409;
+      error.message = "รายการจองนี้ได้รับรีวิวแล้ว";
+    }
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 function getRooms(role, callback) {
@@ -701,7 +715,11 @@ function checkInBooking(bookingId, userId, callback) {
       await connection.beginTransaction();
 
       const [rows] = await connection.execute(
-        `SELECT booking_id, user_id, booking_date, start_time, end_time, status
+        `SELECT booking_id, user_id,
+                DATE_FORMAT(booking_date, '%Y-%m-%d') AS booking_date,
+                TIME_FORMAT(start_time, '%H:%i:%s') AS start_time,
+                TIME_FORMAT(end_time, '%H:%i:%s') AS end_time,
+                status
          FROM bookings
          WHERE booking_id = ? AND user_id = ?
          FOR UPDATE`,
@@ -720,25 +738,20 @@ function checkInBooking(bookingId, userId, callback) {
 
       const date = normalizeDate(booking.booking_date);
       const startTime = normalizeTime(booking.start_time);
-      const endTime = normalizeTime(booking.end_time);
       const now = getBangkokDateTime();
 
       if (date !== getBangkokDate()) {
         throw new Error("สามารถเช็กอินได้เฉพาะวันที่จอง");
       }
 
-      const startDate = new Date(`${date}T${startTime}+07:00`);
-      const endDate = new Date(`${date}T${endTime}+07:00`);
-      const nowDate = new Date(`${now.replace(" ", "T")}+07:00`);
-
-      const earliest = startDate.getTime();
-      const latest = earliest + CHECK_IN_GRACE_MINUTES * 60000;
-
-      if (
-        nowDate.getTime() < earliest ||
-        nowDate.getTime() > latest
-      ) {
-        throw new Error("เช็กอินได้ตั้งแต่เวลาเริ่มจองจนถึง 15 นาทีหลังเวลาเริ่ม");
+      const startTimestamp = getBookingStartTimestamp(date, startTime);
+      const nowTimestamp = parseBangkokDateTime(now);
+      if (!isWithinCheckInWindow(
+        startTimestamp,
+        nowTimestamp,
+        CHECK_IN_GRACE_MINUTES
+      )) {
+        throw new Error("เช็กอินได้ตั้งแต่ 15 นาทีก่อนเวลาเริ่มถึง 15 นาทีหลังเวลาเริ่ม");
       }
 
       await connection.execute(
@@ -774,6 +787,10 @@ async function updateBookingStatuses() {
     await connection.beginTransaction();
 
     const now = getBangkokDateTime();
+    const noShowCutoff = getBangkokDateTimeMinutesBefore(
+      now,
+      CHECK_IN_GRACE_MINUTES
+    );
 
     await connection.execute(
       `UPDATE bookings
@@ -788,15 +805,14 @@ async function updateBookingStatuses() {
       `SELECT booking_id, user_id
        FROM bookings
       WHERE status = 'reserved'
-         AND TIMESTAMP(booking_date, start_time)
-             <= DATE_SUB(?, INTERVAL ? MINUTE)
+         AND TIMESTAMP(booking_date, start_time) < ?
        FOR UPDATE`,
-      [now, CHECK_IN_GRACE_MINUTES]
+      [noShowCutoff]
     );
 
     for (const booking of missedBookings) {
       const [users] = await connection.execute(
-        `SELECT no_show_count
+        `SELECT no_show_count, suspended_until
          FROM users
          WHERE user_id = ?
          FOR UPDATE`,
@@ -808,8 +824,13 @@ async function updateBookingStatuses() {
       }
 
       const nextCount = Number(users[0].no_show_count || 0) + 1;
+      const nowTimestamp = parseBangkokDateTime(now);
+      const alreadySuspended = isSuspendedUntilActive(
+        users[0].suspended_until,
+        nowTimestamp
+      );
 
-      if (nextCount % 2 === 0) {
+      if (nextCount > 3 && !alreadySuspended) {
         await connection.execute(
           `UPDATE users
            SET no_show_count = ?,
@@ -887,6 +908,10 @@ module.exports = {
   getUserById,
   addBooking,
   getBookingsByUser,
+  getRoomReview,
+  getRoomReviewsByRoom,
+  submitRoomReview,
+  getMonthlyBookingQuota,
   getRooms,
   getBookingsByDate,
   deleteBooking,

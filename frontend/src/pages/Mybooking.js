@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "../css/homepage.css";
 import "../css/Mybooking.css";
 import Navbar from "../components/navbar";
+import BookingReviewButton from "../components/BookingReviewButton";
 import API_BASE_URL from "../services/api";
 
 // พิกัดเช็กอิน
@@ -13,9 +14,6 @@ const CHECKIN_LOCATION = {
 
 // ระยะสูงสุดที่อนุญาตให้เช็กอิน (เมตร)
 const CHECKIN_RADIUS_METERS = 500;
-
-// ประเภท "แจ้งปัญหา" (ส่งถึงแอดมินเท่านั้น ไม่แสดงในหน้า Review)
-const PROBLEM_TYPE = "แจ้งปัญหา (อุปกรณ์ชำรุด)";
 
 // ---------- ฟังก์ชันช่วยเหลือ (Helpers) ----------
 
@@ -30,17 +28,6 @@ function getStoredUser() {
 
 function getUserId(user) {
   return user?.user_id ?? user?.id ?? user?.userId ?? null;
-}
-
-// ชื่อเริ่มต้นในฟอร์มรีวิว
-function getDisplayName(user) {
-  return (
-    user?.displayname_th ||
-    user?.displayname_en ||
-    user?.name ||
-    user?.username ||
-    ""
-  );
 }
 
 // id การจอง (DB ใช้ booking_id)
@@ -131,6 +118,39 @@ function getBookingEnd(booking) {
   return Number.isNaN(end.getTime()) ? null : end;
 }
 
+function parseBackendBangkokTime(value) {
+  if (!value) return NaN;
+  const normalized = String(value).trim().replace(" ", "T");
+  const hasTimeZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
+  return Date.parse(hasTimeZone ? normalized : `${normalized}+07:00`);
+}
+
+function isCheckInWindowOpen(booking, now) {
+  const date = String(
+    booking?.booking_date || booking?.date || booking?.bookingDate || ""
+  ).slice(0, 10);
+  const time = String(booking?.start_time || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}(?::\d{2})?$/.test(time)) {
+    return false;
+  }
+
+  const normalizedTime = time.length === 5 ? `${time}:00` : time;
+  const start = parseBackendBangkokTime(`${date} ${normalizedTime}`);
+  return Number.isFinite(start) &&
+    now >= start - 15 * 60_000 &&
+    now <= start + 15 * 60_000;
+}
+
+function formatBackendBangkokTime(value) {
+  const timestamp = parseBackendBangkokTime(value);
+  if (!Number.isFinite(timestamp)) return String(value || "");
+  return new Intl.DateTimeFormat("th-TH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Bangkok"
+  }).format(new Date(timestamp));
+}
+
 // แปลง Booking Status จาก API เป็นป้ายที่แสดง
 function getStatus(status) {
   const value = String(status ?? "").trim().toLowerCase();
@@ -154,8 +174,8 @@ function getStatus(status) {
   }
 }
 
-// Backend เป็นตัวตัดสินสถานะ ฝั่งนี้มี fallback ไว้กรณีข้อมูลยังไม่ถูกอัปเดต
-function getEffectiveStatus(booking, checkedIn, now) {
+// สถานะ completed ใช้ค่าจาก Backend เท่านั้น
+function getEffectiveStatus(booking, checkedIn) {
   const base = getStatus(booking.status);
 
   // เช็กอินสำเร็จแล้วแต่ข้อมูลจากเซิร์ฟเวอร์ยังไม่อัปเดต
@@ -163,15 +183,6 @@ function getEffectiveStatus(booking, checkedIn, now) {
     base.className === "reserved" && checkedIn
       ? { label: "เช็กอินแล้ว / กำลังใช้งาน", className: "checked_in" }
       : base;
-
-  // กำลังใช้งานแต่เลยเวลาสิ้นสุดแล้ว -> Completed
-  if (effective.className === "checked_in") {
-    const end = getBookingEnd(booking);
-
-    if (end && now > end.getTime()) {
-      return { label: "ใช้งานเสร็จแล้ว", className: "completed" };
-    }
-  }
 
   return effective;
 }
@@ -183,6 +194,7 @@ function Mybooking() {
 
   const [user] = useState(() => getStoredUser());
   const [bookings, setBookings] = useState([]);
+  const [accountInfo, setAccountInfo] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -193,22 +205,28 @@ function Mybooking() {
   const [checkingInId, setCheckingInId] = useState(null);
   const [checkedInIds, setCheckedInIds] = useState([]);
 
-  // id การจองที่รีวิวแล้ว (กันรีวิวซ้ำ)
-  const [reviewedIds, setReviewedIds] = useState([]);
-
   // เวลาปัจจุบัน อัปเดตทุก 30 วินาที
   const [now, setNow] = useState(() => Date.now());
+  const accountSuspendedUntil = parseBackendBangkokTime(accountInfo?.suspended_until);
+  const isAccountSuspended = Number.isFinite(accountSuspendedUntil) && accountSuspendedUntil > now;
 
   // state ของป๊อปอัพเขียนรีวิว
   const [reviewTarget, setReviewTarget] = useState(null);
-  const [reviewerName, setReviewerName] = useState("");
   const [selectedRating, setSelectedRating] = useState(0);
-  const [feedbackType, setFeedbackType] = useState("รีวิว");
   const [reviewMessage, setReviewMessage] = useState("");
   const [feedbackError, setFeedbackError] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
 
   const userId = getUserId(user);
+
+  const handleSessionExpired = useCallback(() => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setBookings([]);
+    setAccountInfo(null);
+    setCheckedInIds([]);
+    navigate("/", { replace: true });
+  }, [navigate]);
 
   // ไม่มีข้อมูลผู้ใช้ -> กลับหน้าล็อกอิน
   useEffect(() => {
@@ -219,7 +237,7 @@ function Mybooking() {
 
   // อัปเดตเวลาปัจจุบันเป็นระยะ
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 30000);
+    const timer = window.setInterval(() => setNow(Date.now()), 15000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -251,7 +269,6 @@ function Mybooking() {
           method: "GET",
           headers: {
             Accept: "application/json",
-            "X-User-Id": String(userId),
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         }
@@ -259,9 +276,14 @@ function Mybooking() {
 
       const data = await response.json().catch(() => ({}));
 
+      if (response.status === 401) {
+        handleSessionExpired();
+        return;
+      }
+
       if (!response.ok || data.success === false) {
-        if (response.status === 401 || response.status === 403) {
-          throw new Error("กรุณาเข้าสู่ระบบใหม่");
+        if (response.status === 403) {
+          throw new Error("ไม่มีสิทธิ์ดูรายการจองนี้");
         }
 
         throw new Error(data.message || "Unable to load your bookings.");
@@ -274,6 +296,7 @@ function Mybooking() {
           : [];
 
       setBookings(bookingList);
+      setAccountInfo(data.account || null);
 
       // รวม id ที่เช็กอินแล้วจากเซิร์ฟเวอร์ (ใช้ Set กันซ้ำ)
       setCheckedInIds((previousIds) => [
@@ -292,7 +315,7 @@ function Mybooking() {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, handleSessionExpired]);
 
   useEffect(() => {
     if (userId != null && userId !== "") {
@@ -362,11 +385,9 @@ function Mybooking() {
               headers: {
                 Accept: "application/json",
                 "Content-Type": "application/json",
-                "X-User-Id": String(userId),
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
               },
               body: JSON.stringify({
-                user_id: userId,
                 latitude,
                 longitude,
                 accuracy,
@@ -375,6 +396,11 @@ function Mybooking() {
           );
 
           const data = await response.json().catch(() => ({}));
+
+          if (response.status === 401) {
+            handleSessionExpired();
+            return;
+          }
 
           if (!response.ok || data.success === false) {
             throw new Error(data.message || "Unable to complete check-in.");
@@ -447,13 +473,17 @@ function Mybooking() {
           headers: {
             Accept: "application/json",
             "Content-Type": "application/json",
-            "X-User-Id": String(userId),
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         }
       );
 
       const data = await response.json().catch(() => ({}));
+
+      if (response.status === 401) {
+        handleSessionExpired();
+        return;
+      }
 
       if (!response.ok || data.success === false) {
         throw new Error(data.message || "Unable to cancel this booking.");
@@ -479,9 +509,7 @@ function Mybooking() {
   // ---------- ป๊อปอัพเขียนรีวิว ----------
   const openReviewModal = (booking) => {
     setFeedbackError("");
-    setReviewerName(getDisplayName(user));
     setSelectedRating(0);
-    setFeedbackType("รีวิว");
     setReviewMessage("");
     setReviewTarget(booking);
   };
@@ -513,18 +541,14 @@ function Mybooking() {
 
     if (!reviewTarget) return;
 
-    const name = reviewerName.trim();
     const message = reviewMessage.trim();
-    const isProblem = feedbackType === PROBLEM_TYPE;
 
-    if (!name || !message) {
-      setFeedbackError("กรุณากรอกชื่อและความคิดเห็น");
+    if (!Number.isInteger(selectedRating) || selectedRating < 1 || selectedRating > 5) {
+      setFeedbackError("กรุณาเลือกคะแนนระหว่าง 1 ถึง 5 ดาว");
       return;
     }
-
-    // รีวิวและข้อเสนอแนะต้องให้คะแนน ส่วนแจ้งปัญหาไม่ต้อง
-    if (!isProblem && selectedRating === 0) {
-      setFeedbackError("กรุณาเลือกคะแนนก่อนส่ง");
+    if (!message) {
+      setFeedbackError("กรุณากรอกความคิดเห็น");
       return;
     }
 
@@ -536,21 +560,16 @@ function Mybooking() {
     try {
       const token = localStorage.getItem("token");
 
-      const response = await fetch(`${API_BASE_URL}/api/reviews`, {
+      const response = await fetch(`${API_BASE_URL}/api/bookings/${encodeURIComponent(bookingId)}/review`, {
         method: "POST",
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
-          "X-User-Id": String(userId),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          booking_id: bookingId,
-          user_id: userId,
-          reviewer_name: name,
-          rating: isProblem ? null : selectedRating,
-          type: feedbackType, // Backend แปลงเป็น feedback_type เอง
-          message,
+          rating: selectedRating,
+          comment: message,
         }),
       });
 
@@ -560,16 +579,12 @@ function Mybooking() {
         throw new Error(data.message || "ไม่สามารถส่งความคิดเห็นได้");
       }
 
-      // รีวิว/ข้อเสนอแนะส่งแล้วจะไม่ให้ส่งซ้ำ (แจ้งปัญหายังเขียนได้อีก)
-      if (!isProblem) {
-        setReviewedIds((ids) => [...new Set([...ids, String(bookingId)])]);
-      }
-
-      setToast(
-        isProblem
-          ? "ส่งเรื่องแจ้งปัญหาถึงผู้ดูแลระบบแล้ว"
-          : "ขอบคุณสำหรับรีวิวของคุณ"
-      );
+      setBookings((current) => current.map((booking) =>
+        String(getBookingId(booking)) === String(bookingId)
+          ? { ...booking, reviewed: true }
+          : booking
+      ));
+      setToast("ขอบคุณสำหรับรีวิวของคุณ");
 
       closeReviewModal();
     } catch (err) {
@@ -588,11 +603,19 @@ function Mybooking() {
       const id = getBookingId(booking) ?? index;
       const checkedIn =
         isAlreadyCheckedIn(booking) || checkedInIds.includes(String(id));
-      const status = getEffectiveStatus(booking, checkedIn, now);
-      const reviewed =
-        Boolean(booking.reviewed) || reviewedIds.includes(String(id));
+      const status = getEffectiveStatus(booking, checkedIn);
+      const reviewStatusLoaded = typeof booking.reviewed === "boolean" || booking.reviewed === 0 || booking.reviewed === 1;
+      const reviewed = booking.reviewed === true || booking.reviewed === 1;
 
-      return { booking, id, checkedIn, status, reviewed };
+      return {
+        booking,
+        id,
+        checkedIn,
+        status,
+        reviewed,
+        reviewStatusLoaded,
+        checkInAvailable: isCheckInWindowOpen(booking, now)
+      };
     })
     .filter((item) => item.status.className !== "cancelled");
 
@@ -612,7 +635,7 @@ function Mybooking() {
 
   // การ์ดการจอง (ใช้ทั้งรายการปัจจุบันและประวัติ)
   const renderBookingCard = (item, isHistory) => {
-    const { booking, id, checkedIn, status, reviewed } = item;
+    const { booking, id, checkedIn, status, reviewed, reviewStatusLoaded, checkInAvailable } = item;
 
     const roomName = booking.room_name || booking.room || booking.roomName || "Room";
     const bookingDate = booking.booking_date || booking.date || booking.bookingDate;
@@ -691,7 +714,12 @@ function Mybooking() {
                 type="button"
                 className="checkin-button"
                 onClick={() => handleCheckIn(booking, status, checkedIn)}
-                disabled={checkingInId === rawId}
+                disabled={checkingInId === rawId || !checkInAvailable}
+                title={
+                  checkInAvailable
+                    ? "Check-in window is open"
+                    : "Check-in opens 15 minutes before the booking and closes 15 minutes after it starts"
+                }
               >
                 {checkingInId === rawId ? "Checking in..." : "Check-in"}
               </button>
@@ -708,29 +736,24 @@ function Mybooking() {
           )}
 
           {/* ใช้งานเสร็จสิ้น: ปุ่มเขียนรีวิว (No show ไม่แสดง) */}
-          {isHistory &&
-            status.className === "completed" &&
-            (reviewed ? (
-              <button type="button" className="review-booking-button" disabled>
-                ✓ Reviewed
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="review-booking-button"
-                onClick={() => openReviewModal(booking)}
-              >
-                ✎ Write review
-              </button>
-            ))}
+          {isHistory && (
+            <BookingReviewButton
+              status={status.className}
+              reviewStatusLoaded={reviewStatusLoaded}
+              reviewed={reviewed}
+              onReview={() => openReviewModal(booking)}
+            />
+          )}
 
           <span className="booking-footer-note">
             {isHistory
               ? status.className === "no_show"
                 ? "You did not check in for this reservation."
-                : reviewed
+                : reviewStatusLoaded && reviewed
                   ? "Thank you for your review."
-                  : "How was your experience? Share your feedback."
+                  : reviewStatusLoaded
+                    ? "How was your experience? Share your feedback."
+                    : "Review status could not be loaded."
               : status.className === "checked_in"
                 ? "You are currently using this room."
                 : "Please check in at the venue."}
@@ -806,6 +829,16 @@ function Mybooking() {
               <button type="button" aria-label="Dismiss message" onClick={() => setNotice("")}>
                 ×
               </button>
+            </div>
+          )}
+
+          {isAccountSuspended && (
+            <div className="booking-alert error-alert" role="alert">
+              <span aria-hidden="true">!</span>
+              <span>
+                บัญชีถูกระงับจากการไม่มาเช็กอิน {Number(accountInfo?.no_show_count || 0)} ครั้ง
+                ถึง {formatBackendBangkokTime(accountInfo.suspended_until)}
+              </span>
             </div>
           )}
 
@@ -911,7 +944,7 @@ function Mybooking() {
             </button>
 
             <p className="rv-eyebrow">YOUR FEEDBACK MATTERS</p>
-            <h2 id="feedbackModalTitle">รีวิว / ร้องเรียน / แจ้งปัญหา</h2>
+            <h2 id="feedbackModalTitle">รีวิวห้อง</h2>
             <p className="rv-modal-description">
               ห้อง{" "}
               <strong>
@@ -920,25 +953,10 @@ function Mybooking() {
                   reviewTarget.roomName ||
                   "-"}
               </strong>{" "}
-              · แบ่งปันความคิดเห็นของคุณเกี่ยวกับระบบ BookingCSTU
+              · แบ่งปันประสบการณ์การใช้ห้อง
             </p>
 
             <form onSubmit={handleSubmitReview}>
-              <div className="rv-field">
-                <label htmlFor="reviewerName">ชื่อที่แสดง</label>
-                <input
-                  id="reviewerName"
-                  name="reviewerName"
-                  type="text"
-                  maxLength={60}
-                  required
-                  value={reviewerName}
-                  onChange={(event) => setReviewerName(event.target.value)}
-                />
-              </div>
-
-              {/* แจ้งปัญหาไม่ต้องให้คะแนน จึงซ่อนส่วนนี้ */}
-              {feedbackType !== PROBLEM_TYPE && (
                 <fieldset className="rv-rating-field">
                   <legend>ให้คะแนนความพึงพอใจ</legend>
 
@@ -968,24 +986,6 @@ function Mybooking() {
                       : "เลือกคะแนน 1–5 ดาว"}
                   </span>
                 </fieldset>
-              )}
-
-              <div className="rv-field">
-                <label htmlFor="feedbackType">ประเภทความคิดเห็น</label>
-
-                <select
-                  id="feedbackType"
-                  name="feedbackType"
-                  value={feedbackType}
-                  onChange={(event) => setFeedbackType(event.target.value)}
-                >
-                  <option value="รีวิว">รีวิว</option>
-                  <option value="ร้องเรียน">ร้องเรียน</option>
-                  <option value={PROBLEM_TYPE}>
-                    แจ้งปัญหา (อุปกรณ์ชำรุด)
-                  </option>
-                </select>
-              </div>
 
               <div className="rv-field">
                 <label htmlFor="reviewMessage">ความคิดเห็น</label>
@@ -1008,9 +1008,7 @@ function Mybooking() {
               )}
 
               <p className="rv-form-note">
-                {feedbackType === PROBLEM_TYPE
-                  ? "การแจ้งปัญหาจะส่งถึงผู้ดูแลระบบเท่านั้น และจะไม่แสดงในหน้ารีวิว"
-                  : "รีวิวและข้อเสนอแนะของคุณจะแสดงในหน้ารีวิวสำหรับผู้ใช้งานทุกคน"}
+                รีวิวนี้ผูกกับรายการจองและบัญชีผู้ใช้ของคุณ
               </p>
 
               <div className="rv-modal-actions">
@@ -1027,7 +1025,7 @@ function Mybooking() {
                   className="rv-btn rv-btn-primary"
                   disabled={submittingReview}
                 >
-                  {submittingReview ? "กำลังส่ง..." : "ส่งความคิดเห็น"}
+                  {submittingReview ? "กำลังส่ง..." : "ส่งรีวิว"}
                 </button>
               </div>
             </form>

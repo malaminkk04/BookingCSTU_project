@@ -1,5 +1,10 @@
 
 require("dotenv").config();
+if (process.env.NODE_ENV !== "production") {
+  require("dotenv").config({
+    path: require("path").join(__dirname, ".env.demo.local")
+  });
+}
 
 const express = require("express");
 const cors = require("cors");
@@ -20,6 +25,12 @@ const {
   authenticateLogin,
   logTuAffiliationDebug
 } = require("./utils/login-flow");
+const {
+  createAuthenticateSession,
+  requireAdmin
+} = require("./utils/session-auth");
+const { createBookingRouter } = require("./routes/booking-api");
+const { createFeedbackRouter } = require("./routes/feedback-api");
 
 const {
   db,
@@ -27,6 +38,10 @@ const {
   getUserById,
   addBooking,
   getBookingsByUser,
+  getRoomReview,
+  getRoomReviewsByRoom,
+  submitRoomReview,
+  getMonthlyBookingQuota,
   getBookingsByDate,
   getRooms,
   deleteBooking,
@@ -42,6 +57,7 @@ const ROOM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const TU_AUTH_URL = "https://restapi.tu.ac.th/api/v1/auth/Ad/verify";
 
 const sessions = new Map();
+const authenticateSession = createAuthenticateSession(sessions);
 
 app.use(cors());
 app.use(express.json());
@@ -75,54 +91,6 @@ function createToken(user) {
   });
 
   return token;
-}
-
-function getSession(req) {
-  const authorization = String(req.headers.authorization || "");
-  const match = authorization.match(/^Bearer\s+(.+)$/i);
-
-  if (!match) {
-    return null;
-  }
-
-  const token = match[1].trim();
-  const session = sessions.get(token);
-
-  if (!session) {
-    return null;
-  }
-
-  if (session.expiresAt <= Date.now()) {
-    sessions.delete(token);
-    return null;
-  }
-
-  return session;
-}
-
-function authenticateSession(req, res, next) {
-  const session = getSession(req);
-
-  if (!session) {
-    return res.status(401).json({
-      success: false,
-      message: "กรุณาเข้าสู่ระบบใหม่"
-    });
-  }
-
-  req.session = session;
-  next();
-}
-
-function requireAdmin(req, res, next) {
-  if (!req.session || req.session.accessLevel !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "คุณไม่มีสิทธิ์เข้าถึงส่วนผู้ดูแลระบบ"
-    });
-  }
-
-  next();
 }
 
 function getBangkokDate() {
@@ -1712,321 +1680,23 @@ app.get(
 
 
 // ========================================
-// USER ROOMS API
+// USER ROOMS AND BOOKING API
 // ========================================
-app.get("/api/rooms", async (req, res) => {
-  try {
-    const userId = String(req.headers["x-user-id"] || "");
-
-    if (!/^\d+$/.test(userId)) {
-      return res.status(401).json({
-        success: false,
-        message: "Missing or invalid user ID"
-      });
-    }
-
-    const user = await findUserById(userId);
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "User not found. Please log in again."
-      });
-    }
-
-    const role = String(user.role || "").toLowerCase();
-
-    if (!["student", "teacher"].includes(role)) {
-      return res.status(403).json({
-        success: false,
-        message: "Invalid user role"
-      });
-    }
-
-    const requestedDate = String(req.query.date || "");
-    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-
-    const date = datePattern.test(requestedDate)
-      ? requestedDate
-      : getBangkokDate();
-
-    const [rooms, bookings] = await Promise.all([
-      findRooms(role),
-      findBookingsByDate(date)
-    ]);
-
-    const formattedRooms = rooms.map(room => {
-      const roomCode = String(room.room_code || "").toLowerCase();
-      const roomName = String(room.room_name || "").toLowerCase();
-
-      const roomBookings = bookings.filter(booking => {
-        if (Number(booking.room_id) === Number(room.room_id)) {
-          return true;
-        }
-
-        const bookingRoom = String(booking.room || "").toLowerCase();
-
-        return bookingRoom === roomCode || bookingRoom === roomName;
-      });
-
-      return {
-        ...room,
-        id: room.room_id,
-        room_id: room.room_id,
-        room_code: room.room_code,
-        room_name: room.room_name,
-        floor: room.floor,
-        capacity: room.capacity,
-        facilities: room.facilities,
-        room_type: room.room_type,
-        is_available: room.is_available,
-        bookings: roomBookings
-      };
-    });
-
-    return res.json({
-      success: true,
-      date,
-      role,
-      total: formattedRooms.length,
-      rooms: formattedRooms
-    });
-  } catch (error) {
-    console.error("Get rooms error:", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: "ไม่สามารถโหลดข้อมูลห้องได้"
-    });
-  }
-});
-
-// ========================================
-// CREATE BOOKING
-// ========================================
-app.post("/api/bookings", async (req, res) => {
-  try {
-    const headerUserId = req.headers["x-user-id"];
-    const bodyUserId = req.body.user_id;
-
-    if (!headerUserId || !/^\d+$/.test(String(headerUserId))) {
-      return res.status(401).json({
-        success: false,
-        message: "กรุณาเข้าสู่ระบบใหม่"
-      });
-    }
-
-    const userId = String(headerUserId);
-
-    if (bodyUserId && String(bodyUserId) !== userId) {
-      return res.status(403).json({
-        success: false,
-        message: "User ID mismatch"
-      });
-    }
-
-    const user = await findUserById(userId);
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "User not found"
-      });
-    }
-
-    const { room, date, start_time, end_time, purpose } = req.body;
-
-    if (!room || !date || !start_time || !end_time) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide room, date, start time and end time"
-      });
-    }
-
-    const result = await createBooking({
-      user_id: Number(userId),
-      room,
-      date,
-      start_time,
-      end_time,
-      purpose
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: "Booking created successfully",
-      booking_id: result.booking_id || result,
-      status: "reserved"
-    });
-  } catch (error) {
-    console.error("Create booking error:", error.message);
-
-    return res.status(400).json({
-      success: false,
-      message: error.message || "ไม่สามารถจองห้องได้"
-    });
-  }
-});
-
-// ========================================
-// GET USER BOOKINGS
-// ========================================
-app.get("/api/bookings/:userId", async (req, res) => {
-  try {
-    const requestedUserId = String(req.params.userId);
-    const headerUserId = String(req.headers["x-user-id"] || "");
-
-    if (!/^\d+$/.test(requestedUserId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid user ID"
-      });
-    }
-
-    if (!/^\d+$/.test(headerUserId)) {
-      return res.status(401).json({
-        success: false,
-        message: "กรุณาเข้าสู่ระบบใหม่"
-      });
-    }
-
-    if (headerUserId !== requestedUserId) {
-      return res.status(403).json({
-        success: false,
-        message: "User ID mismatch"
-      });
-    }
-
-    const user = await findUserById(requestedUserId);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
-    }
-
-    const bookings = await findBookingsByUser(requestedUserId);
-
-    return res.json({
-      success: true,
-      bookings
-    });
-  } catch (error) {
-    console.error("Get user bookings error:", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: "ไม่สามารถโหลดรายการจองได้"
-    });
-  }
-});
-
-// ========================================
-// CHECK IN
-// ========================================
-app.post("/api/bookings/:bookingId/check-in", async (req, res) => {
-  try {
-    const bookingId = String(req.params.bookingId);
-    const userId = String(req.headers["x-user-id"] || "");
-
-    if (!/^\d+$/.test(bookingId)) {
-      return res.status(400).json({
-        success: false,
-        message: "รหัสรายการจองไม่ถูกต้อง"
-      });
-    }
-
-    if (!/^\d+$/.test(userId)) {
-      return res.status(401).json({
-        success: false,
-        message: "กรุณาเข้าสู่ระบบใหม่"
-      });
-    }
-
-    const user = await findUserById(userId);
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "ไม่พบบัญชีผู้ใช้งาน"
-      });
-    }
-
-    await checkInBooking(Number(bookingId), Number(userId));
-
-    return res.json({
-      success: true,
-      message: "เช็กอินสำเร็จ",
-      status: "checked_in"
-    });
-  } catch (error) {
-    console.error("Check-in error:", error.message);
-
-    return res.status(400).json({
-      success: false,
-      message: error.message || "ไม่สามารถเช็กอินได้"
-    });
-  }
-});
-
-// ========================================
-// CANCEL BOOKING
-// ========================================
-app.delete("/api/bookings/:bookingId", async (req, res) => {
-  try {
-    const bookingId = String(req.params.bookingId);
-    const userId = String(req.headers["x-user-id"] || "");
-
-    if (!/^\d+$/.test(bookingId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid booking ID"
-      });
-    }
-
-    if (!/^\d+$/.test(userId)) {
-      return res.status(401).json({
-        success: false,
-        message: "กรุณาเข้าสู่ระบบใหม่"
-      });
-    }
-
-    const user = await findUserById(userId);
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "ไม่พบบัญชีผู้ใช้งาน"
-      });
-    }
-
-    const result = await cancelBooking(
-      Number(bookingId),
-      Number(userId)
-    );
-
-    if (!result) {
-      return res.status(400).json({
-        success: false,
-        message: "ไม่สามารถยกเลิกรายการจองนี้ได้"
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: "Booking cancelled successfully",
-      status: "cancelled"
-    });
-  } catch (error) {
-    console.error("Cancel booking error:", error.message);
-
-    return res.status(400).json({
-      success: false,
-      message: error.message || "ไม่สามารถยกเลิกการจองได้"
-    });
-  }
-});
+app.use("/api", createBookingRouter({
+  authenticateSession,
+  findUserById,
+  findRooms,
+  findBookingsByDate,
+  findBookingsByUser,
+  getRoomReview,
+  getRoomReviewsByRoom,
+  submitRoomReview,
+  getMonthlyBookingQuota,
+  createBooking,
+  checkInBooking,
+  cancelBooking,
+  getBangkokDate
+}));
 
 // ========================================
 // ADMIN ACCOUNT MANAGEMENT API
@@ -2249,289 +1919,15 @@ app.patch(
   }
 );
 
-// =====================================================
-// ADMIN SUPPORT API
-// Complaints / Room Reviews / Repair Reports
-// วางก่อน app.use ที่ตอบ API endpoint not found
-// =====================================================
-
-// 1. GET รายการร้องเรียน
-app.get(
-  "/api/admin/complaints",
+// ========================================
+// SYSTEM REVIEW, COMPLAINT & REPAIR API
+// ========================================
+app.use("/api", createFeedbackRouter({
+  pool: db.promise(),
   authenticateSession,
   requireAdmin,
-  async (req, res) => {
-    try {
-      const [rows] = await db.promise().execute(`
-        SELECT
-          c.complaint_id AS id,
-          c.complaint_id,
-          c.subject,
-          c.description,
-          c.status,
-          c.created_at,
-          u.name AS reporter_name,
-          r.room_name
-        FROM complaints c
-        LEFT JOIN users u ON c.user_id = u.user_id
-        LEFT JOIN rooms r ON c.room_id = r.room_id
-        ORDER BY c.created_at DESC
-      `);
-
-      return res.json({
-        success: true,
-        data: rows,
-      });
-    } catch (error) {
-      console.error("GET admin complaints error:", error);
-      return res.status(500).json({
-        success: false,
-        message: "ไม่สามารถโหลดรายการร้องเรียนได้",
-      });
-    }
-  }
-);
-
-// 2. PATCH เปลี่ยนสถานะเรื่องร้องเรียน
-app.patch(
-  "/api/admin/complaints/:id/status",
-  authenticateSession,
-  requireAdmin,
-  async (req, res) => {
-    try {
-      const id = Number(req.params.id);
-      const { status } = req.body;
-
-      const allowedStatuses = [
-        "รอดำเนินการ",
-        "กำลังตรวจสอบ",
-        "ดำเนินการแล้ว",
-        "ปิดเรื่อง",
-      ];
-
-      if (!Number.isInteger(id) || id <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: "รหัสเรื่องร้องเรียนไม่ถูกต้อง",
-        });
-      }
-
-      if (!allowedStatuses.includes(status)) {
-        return res.status(400).json({
-          success: false,
-          message: "สถานะเรื่องร้องเรียนไม่ถูกต้อง",
-        });
-      }
-
-      const [result] = await db.promise().execute(
-        "UPDATE complaints SET status = ? WHERE complaint_id = ?",
-        [status, id]
-      );
-
-      if (result.affectedRows === 0) {
-        return res.status(404).json({
-          success: false,
-          message: "ไม่พบเรื่องร้องเรียน",
-        });
-      }
-
-      return res.json({
-        success: true,
-        message: "อัปเดตสถานะเรื่องร้องเรียนสำเร็จ",
-      });
-    } catch (error) {
-      console.error("PATCH complaint status error:", error);
-      return res.status(500).json({
-        success: false,
-        message: "ไม่สามารถอัปเดตสถานะเรื่องร้องเรียนได้",
-      });
-    }
-  }
-);
-
-// 3. GET รีวิวห้องจากตาราง reviews ที่มีอยู่จริง
-app.get(
-  "/api/admin/reviews",
-  authenticateSession,
-  requireAdmin,
-  async (req, res) => {
-    try {
-      const [rows] = await db.promise().execute(`
-        SELECT
-          rv.review_id AS id,
-          rv.review_id,
-          rv.rating,
-          rv.comment,
-          rv.status,
-          rv.created_at,
-          u.name AS reviewer_name,
-          r.room_name
-        FROM reviews rv
-        LEFT JOIN users u ON rv.user_id = u.user_id
-        LEFT JOIN bookings b ON rv.booking_id = b.booking_id
-        LEFT JOIN rooms r ON b.room_id = r.room_id
-        ORDER BY rv.created_at DESC
-      `);
-
-      return res.json({
-        success: true,
-        data: rows,
-      });
-    } catch (error) {
-      console.error("GET admin reviews error:", error);
-      return res.status(500).json({
-        success: false,
-        message: "ไม่สามารถโหลดรีวิวห้องได้",
-      });
-    }
-  }
-);
-
-// 4. PATCH เปลี่ยนสถานะรีวิว: แสดงผล / ซ่อนรีวิว
-app.patch(
-  "/api/admin/reviews/:id/status",
-  authenticateSession,
-  requireAdmin,
-  async (req, res) => {
-    try {
-      const id = Number(req.params.id);
-      const { status } = req.body;
-
-      const allowedStatuses = ["แสดงผล", "ซ่อนรีวิว"];
-
-      if (!Number.isInteger(id) || id <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: "รหัสรีวิวไม่ถูกต้อง",
-        });
-      }
-
-      if (!allowedStatuses.includes(status)) {
-        return res.status(400).json({
-          success: false,
-          message: "สถานะรีวิวไม่ถูกต้อง",
-        });
-      }
-
-      const [result] = await db.promise().execute(
-        "UPDATE reviews SET status = ? WHERE review_id = ?",
-        [status, id]
-      );
-
-      if (result.affectedRows === 0) {
-        return res.status(404).json({
-          success: false,
-          message: "ไม่พบรีวิว",
-        });
-      }
-
-      return res.json({
-        success: true,
-        message: "อัปเดตสถานะรีวิวสำเร็จ",
-      });
-    } catch (error) {
-      console.error("PATCH review status error:", error);
-      return res.status(500).json({
-        success: false,
-        message: "ไม่สามารถอัปเดตสถานะรีวิวได้",
-      });
-    }
-  }
-);
-
-// 5. GET รายการแจ้งซ่อม
-app.get(
-  "/api/admin/repairs",
-  authenticateSession,
-  requireAdmin,
-  async (req, res) => {
-    try {
-      const [rows] = await db.promise().execute(`
-        SELECT
-          rp.repair_id AS id,
-          rp.repair_id,
-          rp.subject,
-          rp.description,
-          rp.status,
-          rp.created_at,
-          u.name AS reporter_name,
-          r.room_name
-        FROM repair_reports rp
-        LEFT JOIN users u ON rp.user_id = u.user_id
-        LEFT JOIN rooms r ON rp.room_id = r.room_id
-        ORDER BY rp.created_at DESC
-      `);
-
-      return res.json({
-        success: true,
-        data: rows,
-      });
-    } catch (error) {
-      console.error("GET admin repairs error:", error);
-      return res.status(500).json({
-        success: false,
-        message: "ไม่สามารถโหลดรายการแจ้งซ่อมได้",
-      });
-    }
-  }
-);
-
-// 6. PATCH เปลี่ยนสถานะรายการแจ้งซ่อม
-app.patch(
-  "/api/admin/repairs/:id/status",
-  authenticateSession,
-  requireAdmin,
-  async (req, res) => {
-    try {
-      const id = Number(req.params.id);
-      const { status } = req.body;
-
-      const allowedStatuses = [
-        "รอดำเนินการ",
-        "กำลังซ่อม",
-        "ซ่อมเสร็จ",
-        "ยกเลิก",
-      ];
-
-      if (!Number.isInteger(id) || id <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: "รหัสรายการแจ้งซ่อมไม่ถูกต้อง",
-        });
-      }
-
-      if (!allowedStatuses.includes(status)) {
-        return res.status(400).json({
-          success: false,
-          message: "สถานะรายการแจ้งซ่อมไม่ถูกต้อง",
-        });
-      }
-
-      const [result] = await db.promise().execute(
-        "UPDATE repair_reports SET status = ? WHERE repair_id = ?",
-        [status, id]
-      );
-
-      if (result.affectedRows === 0) {
-        return res.status(404).json({
-          success: false,
-          message: "ไม่พบรายการแจ้งซ่อม",
-        });
-      }
-
-      return res.json({
-        success: true,
-        message: "อัปเดตสถานะรายการแจ้งซ่อมสำเร็จ",
-      });
-    } catch (error) {
-      console.error("PATCH repair status error:", error);
-      return res.status(500).json({
-        success: false,
-        message: "ไม่สามารถอัปเดตสถานะรายการแจ้งซ่อมได้",
-      });
-    }
-  }
-);
+  findUserById
+}));
 
 // ========================================
 // START SERVER

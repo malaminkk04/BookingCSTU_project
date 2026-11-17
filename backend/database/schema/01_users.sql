@@ -2,7 +2,7 @@ CREATE TABLE users (
     user_id INT NOT NULL AUTO_INCREMENT,
     tu_id VARCHAR(20) NOT NULL,
     username VARCHAR(100) NOT NULL,
-    email VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NULL DEFAULT NULL,
     name VARCHAR(100) NOT NULL,
     displayname_th VARCHAR(255) NOT NULL,
     faculty VARCHAR(255) NULL,

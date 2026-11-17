@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../css/homepage.css";
 import Navbar from "../components/navbar";
@@ -364,7 +364,12 @@ function getAvailableStartTimes(date) {
   const now = getBangkokDateTime();
   const today = now.slice(0, 10);
 
-  if (!date || date < today || isWeekendDate(date)) {
+  if (
+    !date ||
+    date < today ||
+    date > getMaxBookingDate() ||
+    isWeekendDate(date)
+  ) {
     return [];
   }
 
@@ -390,7 +395,7 @@ function getAvailableEndTimes(date, startTime) {
     const endMinutes = timeToMinutes(time);
     const duration = endMinutes - startMinutes;
 
-    if (duration < 60 || duration > 120) {
+    if (duration < 30 || duration > 120 || duration % 30 !== 0) {
       return false;
     }
 
@@ -443,6 +448,7 @@ function Homepage() {
 
   const [user, setUser] = useState(null);
   const [rooms, setRooms] = useState([]);
+  const [bookingQuota, setBookingQuota] = useState(null);
   const [refreshRooms, setRefreshRooms] = useState(0);
 
   const [roomStatus, setRoomStatus] = useState({
@@ -462,6 +468,14 @@ function Homepage() {
   const [bookingError, setBookingError] = useState("");
   const [saving, setSaving] = useState(false);
   const [clockTick, setClockTick] = useState(0);
+
+  const expireSession = useCallback(() => {
+    localStorage.removeItem(STORAGE_USER_KEY);
+    localStorage.removeItem(STORAGE_TOKEN_KEY);
+    setUser(null);
+    setRooms([]);
+    navigate("/", { replace: true });
+  }, [navigate]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -521,7 +535,7 @@ function Homepage() {
     const date = dateFilter || getBangkokDate();
 
     const headers = {
-      "x-user-id": String(user.user_id),
+      Accept: "application/json",
     };
 
     if (token) {
@@ -540,11 +554,13 @@ function Homepage() {
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-          throw new Error(
+          const error = new Error(
             data.message ||
               data.error ||
               `โหลดข้อมูลห้องไม่สำเร็จ (HTTP ${response.status})`
           );
+          error.status = response.status;
+          throw error;
         }
 
         return data;
@@ -574,6 +590,11 @@ function Homepage() {
       .catch((error) => {
         if (error.name === "AbortError") return;
 
+        if (error.status === 401) {
+          expireSession();
+          return;
+        }
+
         console.error("Unable to load rooms:", error);
         setRooms([]);
 
@@ -584,7 +605,45 @@ function Homepage() {
       });
 
     return () => controller.abort();
-  }, [user, dateFilter, refreshRooms]);
+  }, [user, dateFilter, refreshRooms, expireSession]);
+
+  useEffect(() => {
+    if (!user?.user_id) {
+      setBookingQuota(null);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const token = localStorage.getItem(STORAGE_TOKEN_KEY);
+    const quotaDate = selectedRoom ? bookingDate : dateFilter;
+    const headers = { Accept: "application/json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    fetch(
+      `${API_BASE_URL}/api/bookings/quota?date=${encodeURIComponent(quotaDate)}`,
+      { method: "GET", headers, signal: controller.signal }
+    )
+      .then(async (response) => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const error = new Error(result.message || "โหลดโควตาไม่สำเร็จ");
+          error.status = response.status;
+          throw error;
+        }
+        return result;
+      })
+      .then((result) => setBookingQuota(result.quota || null))
+      .catch((error) => {
+        if (error.name === "AbortError") return;
+        if (error.status === 401) {
+          expireSession();
+          return;
+        }
+        setBookingQuota(null);
+      });
+
+    return () => controller.abort();
+  }, [user, dateFilter, bookingDate, selectedRoom, refreshRooms, expireSession]);
 
   useEffect(() => {
     if (!selectedRoom) return;
@@ -697,6 +756,11 @@ function Homepage() {
       return;
     }
 
+    if (value > getMaxBookingDate()) {
+      setBookingError("สามารถจองล่วงหน้าได้ไม่เกิน 1 เดือน");
+      return;
+    }
+
     if (isWeekendDate(value)) {
       setBookingError(
         "ไม่สามารถจองห้องในวันเสาร์–อาทิตย์ได้ กรุณาเลือกวันจันทร์–ศุกร์"
@@ -753,6 +817,11 @@ function Homepage() {
       return;
     }
 
+    if (bookingDate > getMaxBookingDate()) {
+      setBookingError("สามารถจองล่วงหน้าได้ไม่เกิน 1 เดือน");
+      return;
+    }
+
     if (isWeekendDate(bookingDate)) {
       setBookingError(
         "ไม่สามารถจองห้องในวันเสาร์–อาทิตย์ได้ กรุณาเลือกวันจันทร์–ศุกร์"
@@ -784,8 +853,8 @@ function Homepage() {
       return;
     }
 
-    if (duration < 60 || duration > 120) {
-      setBookingError("ระยะเวลาจองต้องอยู่ระหว่าง 1–2 ชั่วโมง");
+    if (duration < 30 || duration > 120 || duration % 30 !== 0) {
+      setBookingError("ระยะเวลาจองต้องอยู่ระหว่าง 30 นาที–2 ชั่วโมง โดยเพิ่มครั้งละ 30 นาที");
       return;
     }
 
@@ -795,7 +864,6 @@ function Homepage() {
     try {
       const headers = {
         "Content-Type": "application/json",
-        "x-user-id": String(user.user_id),
       };
 
       const token = localStorage.getItem(STORAGE_TOKEN_KEY);
@@ -808,7 +876,6 @@ function Homepage() {
         method: "POST",
         headers,
         body: JSON.stringify({
-          user_id: user.user_id,
           room: roomName(selectedRoom),
           date: bookingDate,
           start_time: startTime,
@@ -819,6 +886,14 @@ function Homepage() {
 
       const result = await response.json().catch(() => ({}));
 
+      if (response.status === 401) {
+        const error = new Error(
+          result.message || "กรุณาเข้าสู่ระบบใหม่"
+        );
+        error.status = response.status;
+        throw error;
+      }
+
       if (!response.ok) {
         throw new Error(
           result.message ||
@@ -827,12 +902,18 @@ function Homepage() {
         );
       }
 
+      if (result.quota) setBookingQuota(result.quota);
       setDateFilter(bookingDate);
       setRefreshRooms((value) => value + 1);
       closeBooking();
 
       window.alert(result.message || "จองห้องสำเร็จ");
     } catch (error) {
+      if (error.status === 401) {
+        expireSession();
+        return;
+      }
+
       console.error("Booking error:", error);
 
       setBookingError(
@@ -1280,8 +1361,22 @@ function Homepage() {
 
               <p className="form-note">
                 เปิดให้บริการวันจันทร์–ศุกร์ เวลา 08:00–16:00 น.
-                โดยสามารถจองได้รอบละ 1–2 ชั่วโมง
+                โดยสามารถจองได้รอบละ 30 นาที–2 ชั่วโมง
               </p>
+
+              {bookingQuota && bookingQuota.month === bookingDate.slice(0, 7) && (
+                <p className="form-note" aria-live="polite">
+                  โควตาเดือน {bookingQuota.month}: ใช้ไป {bookingQuota.used_minutes / 60} / {bookingQuota.limit_minutes / 60} ชั่วโมง
+                  (คงเหลือ {bookingQuota.remaining_minutes / 60} ชั่วโมง)
+                </p>
+              )}
+
+              {bookingQuota && bookingQuota.month === bookingDate.slice(0, 7) && startTime && endTime &&
+                timeToMinutes(endTime) - timeToMinutes(startTime) > bookingQuota.remaining_minutes && (
+                  <p className="form-error" role="alert">
+                    โควตาเดือนนี้คงเหลือไม่เพียงพอสำหรับช่วงเวลาที่เลือก
+                  </p>
+                )}
 
               {bookingError && (
                 <p id="bookingError" className="form-error" role="alert">

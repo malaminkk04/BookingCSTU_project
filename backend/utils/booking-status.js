@@ -11,10 +11,11 @@ const ACTIVE_BOOKING_STATUSES = Object.freeze([
   "checked_in"
 ]);
 
-const TEACHER_USAGE_STATUSES = Object.freeze([
+const BOOKING_QUOTA_STATUSES = Object.freeze([
   "reserved",
   "checked_in",
-  "completed"
+  "completed",
+  "no_show"
 ]);
 
 function isBookingStatus(status) {
@@ -48,7 +49,8 @@ function summarizeBookingStatuses(rows) {
 module.exports = {
   BOOKING_STATUSES,
   ACTIVE_BOOKING_STATUSES,
-  TEACHER_USAGE_STATUSES,
+  BOOKING_QUOTA_STATUSES,
+  TEACHER_USAGE_STATUSES: BOOKING_QUOTA_STATUSES,
   isBookingStatus,
   summarizeBookingStatuses
 };

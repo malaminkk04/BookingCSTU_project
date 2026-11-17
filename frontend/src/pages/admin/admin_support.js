@@ -6,7 +6,7 @@ import API_BASE_URL from "../../services/api";
 // กำหนดแท็บประเภทข้อมูลที่ Admin สามารถจัดการได้
 const SECTIONS = [
   { key: "complaints", label: "ร้องเรียน", icon: "⚑" },
-  { key: "reviews", label: "รีวิวห้อง", icon: "★" },
+  { key: "reviews", label: "รีวิวระบบ", icon: "★" },
   { key: "repairs", label: "แจ้งซ่อม", icon: "🔧" },
 ];
 
@@ -36,13 +36,12 @@ const CONFIG = {
   },
 
   reviews: {
-    title: "จัดการรีวิวห้อง",
-    description: "ตรวจสอบคะแนนและความคิดเห็นของผู้ใช้บริการ",
+    title: "จัดการรีวิวระบบ",
+    description: "ตรวจสอบคะแนนและความคิดเห็นเกี่ยวกับระบบจองห้อง",
     endpoint: "/api/admin/reviews",
-    statuses: ["แสดงผล", "ซ่อนรีวิว"],
+    statuses: ["visible", "hidden"],
     fields: [
       ["id", "รหัส"],
-      ["room_name", "ห้อง"],
       ["reviewer_name", "ผู้รีวิว"],
       ["rating", "คะแนน"],
       ["comment", "ความคิดเห็น"],
@@ -121,6 +120,7 @@ function getStatusClass(status) {
     value.includes("เสร็จ") ||
     value.includes("ดำเนินการแล้ว") ||
     value.includes("แสดงผล") ||
+    value === "visible" ||
     value === "resolved" ||
     value === "completed"
   ) {
@@ -141,6 +141,7 @@ function getStatusClass(status) {
     value.includes("ยกเลิก") ||
     value.includes("เสร็จสิ้น") ||
     value.includes("ซ่อน") ||
+    value === "hidden" ||
     value === "cancelled" ||
     value === "hidden" ||
     value === "closed"
@@ -179,6 +180,7 @@ export default function AdminSupport() {
 
   // เก็บ ID ของรายการที่กำลังอัปเดตสถานะ
   const [savingId, setSavingId] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   // ดึงการตั้งค่าตามแท็บที่เลือก
   const config = CONFIG[section];
@@ -287,6 +289,11 @@ export default function AdminSupport() {
 
   // ฟังก์ชันเปลี่ยนสถานะรายการ
   async function updateStatus(record, newStatus) {
+    if (!config.statuses.includes(newStatus)) {
+      setError("สถานะไม่ถูกต้อง");
+      return;
+    }
+
     // อ่าน ID ของรายการที่ต้องการแก้ไข
     const id = getRecordId(record);
 
@@ -366,6 +373,43 @@ export default function AdminSupport() {
     }
   }
 
+  async function openRecord(record) {
+    const id = getRecordId(record);
+    if (id == null) {
+      setError("ข้อมูลรายการไม่มี ID จึงไม่สามารถโหลดรายละเอียดได้");
+      return;
+    }
+
+    setSelected(record);
+    setDetailLoading(true);
+    setError("");
+    try {
+      const user = getStoredUser();
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${API_BASE_URL}${config.endpoint}/${encodeURIComponent(id)}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(user?.user_id ? { "x-user-id": String(user.user_id) } : {}),
+          },
+        }
+      );
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.message || "ไม่สามารถโหลดรายละเอียดได้");
+      const detail = result.data || result.record || result;
+      if (!detail || typeof detail !== "object" || Array.isArray(detail)) {
+        throw new Error("รูปแบบรายละเอียดไม่ถูกต้อง");
+      }
+      setSelected(detail);
+    } catch (err) {
+      setError(err.message === "Failed to fetch" ? "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้" : err.message);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
   // การแสดงผล
 
   return (
@@ -379,7 +423,7 @@ export default function AdminSupport() {
           <h1>จัดการความคิดเห็นและปัญหา</h1>
 
           <p className="admin-support-subtitle">
-            ดูแลเรื่องร้องเรียน รีวิวห้อง และรายการแจ้งซ่อมในที่เดียว
+            ดูแลเรื่องร้องเรียน รีวิวระบบ และรายการแจ้งซ่อมในที่เดียว
           </p>
         </div>
 
@@ -571,7 +615,7 @@ export default function AdminSupport() {
                       <button
                         type="button"
                         className="admin-support-detail-button"
-                        onClick={() => setSelected(record)}
+                        onClick={() => openRecord(record)}
                       >
                         รายละเอียด
                       </button>
@@ -628,7 +672,9 @@ export default function AdminSupport() {
 
             {/* แสดงรายละเอียดทั้งหมดของรายการที่เลือก */}
             <div className="admin-support-detail-list">
-              {Object.entries(selected).map(([key, value]) => (
+              {detailLoading ? (
+                <p role="status">กำลังโหลดรายละเอียด...</p>
+              ) : Object.entries(selected).map(([key, value]) => (
                 <div
                   className="admin-support-detail-row"
                   key={key}

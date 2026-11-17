@@ -671,25 +671,7 @@
   color: #a63838;
 }
 
-.admin-room-color-input {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 41px;
-  color: #697993;
-  font-size: 12px;
-  font-weight: 500;
-}
 
-.admin-room-color-input input[type="color"] {
-  width: 44px;
-  height: 34px;
-  padding: 3px;
-  border: 1px solid #dfe5ef;
-  border-radius: 7px;
-  background: #fff;
-  cursor: pointer;
-}
 
 .admin-room-checkbox {
   display: flex;

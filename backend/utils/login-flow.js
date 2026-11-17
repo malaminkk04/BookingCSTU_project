@@ -262,12 +262,23 @@ async function authenticateLogin(
   };
 
   const savedUser = await saveUser(userData);
-  const token = createToken(savedUser);
+  if (!savedUser || !savedUser.user_id) {
+    throw new Error("Unable to save or load user account");
+  }
+
+  // The database record may contain stale authorization fields. Derive the
+  // session access level from the role established from the TU response.
+  const authenticatedUser = {
+    ...savedUser,
+    ...userData,
+    access_level: userData.role === "admin" ? "admin" : "user"
+  };
+  const token = createToken(authenticatedUser);
 
   return {
     authorized: true,
     userData,
-    savedUser,
+    savedUser: authenticatedUser,
     token
   };
 }

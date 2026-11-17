@@ -1,23 +1,4 @@
-CREATE TABLE rooms (
-    room_id INT NOT NULL AUTO_INCREMENT,
-    room_code VARCHAR(50) NOT NULL,
-    floor INT NOT NULL,
-    room_name VARCHAR(255) NOT NULL,
-    department VARCHAR(100) DEFAULT 'Computer Science',
-    capacity INT NOT NULL,
-    facilities TEXT,
-    department_color VARCHAR(20) DEFAULT NULL,
-    is_available TINYINT(1) DEFAULT '1',
-    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP
-        ON UPDATE CURRENT_TIMESTAMP,
-    room_type VARCHAR(50) NOT NULL DEFAULT 'meeting_room',
-    image_url VARCHAR(500) DEFAULT NULL,
-    PRIMARY KEY (room_id),
-    UNIQUE KEY room_code (room_code),
-    UNIQUE KEY room_name (room_name)
-) ENGINE=InnoDB AUTO_INCREMENT=256 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
+-- Initial room catalog data retained from the legacy tables/rooms.sql.
 INSERT INTO rooms
 (
     room_id,

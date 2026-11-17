@@ -873,24 +873,7 @@ function AdminRooms() {
                   />
                 </label>
 
-                <label>
-                  สีประจำหน่วยงาน
-                  <div className="admin-room-color-input">
-                    <input
-                      type="color"
-                      name="department_color"
-                      value={
-                        /^#[0-9a-f]{6}$/i.test(form.department_color)
-                          ? form.department_color
-                          : "#354f8b"
-                      }
-                      onChange={updateForm}
-                    />
-                    <span>
-                      {form.department_color || "#354f8b"}
-                    </span>
-                  </div>
-                </label>
+                
 
                 <label className="admin-room-availability-field">
                   สถานะห้อง

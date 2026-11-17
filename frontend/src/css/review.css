@@ -1148,12 +1148,9 @@
   object-fit: cover;
 }
 
-.room-card-placeholder {
-  display: grid;
-  place-items: center;
+.room-card-image .room-image-placeholder {
   width: 100%;
   height: 100%;
-  font-size: 48px;
 }
 
 .room-card-badge {

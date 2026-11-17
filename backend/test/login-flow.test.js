@@ -377,24 +377,29 @@ test("rejects disabled demo environments and incorrect credentials without creat
     }
   }
 
-  const calls = [];
-  const invalidCredentials = await authenticateLogin(
-    { identifier: "admin_demo", password: "wrong-mock-password" },
-    {
-      env: {
-        NODE_ENV: "development",
-        DEMO_LOGIN_ENABLED: "true",
-        DEMO_ADMIN_PASSWORD: "mock-admin-password"
-      },
-      resolveLoginIdentifier: async () => calls.push("resolve"),
-      verifyWithTuApi: async () => calls.push("verify"),
-      saveUser: async () => calls.push("save"),
-      createToken: () => calls.push("create-session")
-    }
-  );
+  for (const [identifier, passwordEnvironmentVariable] of [
+    ["admin_demo", "DEMO_ADMIN_PASSWORD"],
+    ["teacher_demo", "DEMO_TEACHER_PASSWORD"]
+  ]) {
+    const calls = [];
+    const invalidCredentials = await authenticateLogin(
+      { identifier, password: "wrong-mock-password" },
+      {
+        env: {
+          NODE_ENV: "development",
+          DEMO_LOGIN_ENABLED: "true",
+          [passwordEnvironmentVariable]: "mock-correct-password"
+        },
+        resolveLoginIdentifier: async () => calls.push("resolve"),
+        verifyWithTuApi: async () => calls.push("verify"),
+        saveUser: async () => calls.push("save"),
+        createToken: () => calls.push("create-session")
+      }
+    );
 
-  assert.deepEqual(invalidCredentials, { authorized: false });
-  assert.deepEqual(calls, []);
+    assert.deepEqual(invalidCredentials, { authorized: false });
+    assert.deepEqual(calls, []);
+  }
   assert.equal(isDemoLoginIdentifier("teacher_demo"), true);
   assert.equal(isDemoLoginIdentifier("admin_demo"), true);
 });
@@ -424,17 +429,26 @@ test("persists the normalized eligible TU profile before creating a session", as
         assert.equal(userData.faculty, ALLOWED_FACULTY);
         assert.equal(userData.major, ALLOWED_MAJOR);
         assert.equal(userData.role, "student");
-        return { user_id: 7, ...userData };
+        return {
+          user_id: 7,
+          ...userData,
+          role: "admin",
+          access_level: "admin"
+        };
       },
       createToken: (user) => {
         calls.push("create-session");
         assert.equal(user.user_id, 7);
+        assert.equal(user.role, "student");
+        assert.equal(user.access_level, "user");
         return "mock-session-token";
       }
     }
   );
 
   assert.equal(result.authorized, true);
+  assert.equal(result.savedUser.role, "student");
+  assert.equal(result.savedUser.access_level, "user");
   assert.equal(result.token, "mock-session-token");
   assert.deepEqual(calls, ["save", "create-session"]);
 });

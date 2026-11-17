@@ -4,152 +4,15 @@ import { useNavigate } from "react-router-dom";
 import "../css/homepage.css";
 import "../css/review.css";
 import Navbar from "../components/navbar";
-import API_BASE_URL from "../services/api";
+import FeedbackTypeFields, { FEEDBACK_TYPES } from "../components/FeedbackTypeFields";
+import { validateFeedbackForm } from "../utils/feedback-validation";
+import API_BASE_URL, { getApiAssetUrl } from "../services/api";
+import RoomImage from "../components/RoomImage";
 
 const USER_KEY = "user";
 const TOKEN_KEY = "token";
 const ROOMS_ENDPOINT = `${API_BASE_URL}/api/rooms`;
 const ROOM_PAGE_SIZE = 5;
-
-const FEEDBACK_TYPES = {
-  REVIEW: "รีวิว",
-  COMPLAINT: "ร้องเรียน",
-  REPAIR: "แจ้งปัญหา",
-};
-
-const INITIAL_REVIEWS = [
-  {
-    id: 1,
-    name: "Nicha.s",
-    date: "2026-10-12",
-    rating: 5,
-    message: "ห้องสะอาด อุปกรณ์ครบ ระบบจองใช้งานได้ดีมากค่ะ การจองก็ไม่ยุ่งยาก",
-    helpful: 12,
-    verified: true,
-    type: "รีวิว",
-  },
-  {
-    id: 2,
-    name: "Ploy_23",
-    date: "2026-10-08",
-    rating: 4,
-    message: "ห้องโอเคค่ะ แต่เครื่องโปรเจกเตอร์เปิดไม่ติดตอนแรก มีเจ้าหน้าที่เข้ามาช่วยแก้ไขให้",
-    helpful: 8,
-    verified: true,
-    type: "รีวิว",
-  },
-  {
-    id: 3,
-    name: "Beammm",
-    date: "2026-10-03",
-    rating: 4,
-    message: "โต๊ะเก้าอี้ใช้งานได้ดี โดยรวมสะดวกมากค่ะ",
-    helpful: 5,
-    verified: true,
-    type: "รีวิว",
-  },
-  {
-    id: 4,
-    name: "Karn",
-    date: "2026-09-28",
-    rating: 3,
-    message: "เสียงในห้องบางจุดยังไม่ค่อยชัด แต่โดยรวมโอเคค่ะ",
-    helpful: 3,
-    verified: true,
-    type: "รีวิว",
-  },
-  {
-    id: 5,
-    name: "Aomchaa",
-    date: "2026-09-25",
-    rating: 5,
-    message: "การจองผ่านเว็บไซต์สะดวกมากค่ะ ได้ห้องตรงตามที่ต้องการ",
-    helpful: 10,
-    verified: true,
-    type: "รีวิว",
-  },
-  {
-    id: 6,
-    name: "Nampetch",
-    date: "2026-09-20",
-    rating: 4,
-    message: "แอร์เย็นดี แต่เสียงจากห้องข้าง ๆ ค่อนข้างดัง",
-    helpful: 6,
-    verified: true,
-    type: "รีวิว",
-  },
-  {
-    id: 7,
-    name: "Tee_CSTU",
-    date: "2026-09-15",
-    rating: 5,
-    message: "ขั้นตอนจองเข้าใจง่าย ตรวจสอบเวลาว่างก่อนจองได้ ช่วยวางแผนการใช้งานได้ดี",
-    helpful: 4,
-    verified: true,
-    type: "รีวิว",
-  },
-  {
-    id: 8,
-    name: "Mild",
-    date: "2026-09-11",
-    rating: 2,
-    message: "อยากให้มีรูปอุปกรณ์และรายละเอียดห้องให้ครบกว่านี้ก่อนกดจอง",
-    helpful: 2,
-    verified: true,
-    type: "รีวิว",
-  },
-];
-
-// ข้อมูลจำลองสำหรับห้อง 301 ใช้แสดงเมื่อ API ยังไม่มีรีวิว
-const SAMPLE_ROOM_REVIEWS = {
-  "301": {
-    average_rating: 4.5,
-    review_count: 4,
-    usage_count: 28,
-    reviews: [
-      {
-        id: "sample-301-1",
-        name: "Ploy_23",
-        date: "2026-10-20",
-        rating: 5,
-        message:
-          "ห้องสะอาด บรรยากาศดี โต๊ะเก้าอี้พร้อมใช้งาน เหมาะกับการประชุมกลุ่มมากค่ะ",
-        type: "รีวิว",
-        verified: false,
-      },
-      {
-        id: "sample-301-2",
-        name: "Beam_CSTU",
-        date: "2026-10-18",
-        rating: 4,
-        message:
-          "ห้องค่อนข้างกว้าง ใช้งานสะดวก แต่สัญญาณ Wi-Fi บางช่วงไม่ค่อยเสถียร",
-        type: "รีวิว",
-        verified: false,
-      },
-      {
-        id: "sample-301-3",
-        name: "Nicha.s",
-        date: "2026-10-15",
-        rating: 5,
-        message:
-          "จองห้องง่ายมากค่ะ ห้องเงียบ เหมาะกับการทำโปรเจกต์และประชุมงานกลุ่ม",
-        type: "รีวิว",
-        verified: false,
-      },
-      {
-        id: "sample-301-4",
-        name: "Karn",
-        date: "2026-10-10",
-        rating: 4,
-        message:
-          "โดยรวมดีค่ะ อยากให้มีการตรวจสอบอุปกรณ์ก่อนเริ่มใช้งานทุกครั้ง",
-        type: "รีวิว",
-        verified: false,
-      },
-    ],
-  },
-};
 
 function readStoredUser() {
   try {
@@ -160,49 +23,25 @@ function readStoredUser() {
   }
 }
 
-function formatThaiDate(value) {
-  if (!value) return "-";
-
-  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
-
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date);
-}
-
-function getDisplayName(user) {
-  return (
-    user?.displayname_th ||
-    user?.displayname_en ||
-    user?.name ||
-    user?.username ||
-    ""
-  );
-}
-
 function getUserId(user) {
   return user?.user_id ?? user?.id ?? user?.userId ?? null;
 }
 
 function getBangkokDate() {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Bangkok",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
+    timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit"
   }).formatToParts(new Date());
-
-  const values = {};
-
-  parts.forEach((part) => {
-    if (part.type !== "literal") values[part.type] = part.value;
-  });
-
+  const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}`;
+}
+
+function formatThaiDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat("th-TH", {
+    day: "numeric", month: "short", year: "numeric"
+  }).format(date);
 }
 
 function getRoomId(room) {
@@ -253,38 +92,8 @@ function getRoomFloor(room) {
   return match ? match[1] : "";
 }
 
-function getRoomImage(room) {
-  return (
-    room?.image_url ??
-    room?.image ??
-    room?.photo ??
-    room?.picture ??
-    room?.thumbnail ??
-    ""
-  );
-}
-
 function getRoomDescription(room) {
   return room?.description ?? room?.detail ?? room?.room_description ?? "";
-}
-
-
-function isRoom301(room) {
-  const roomName = String(
-    room?.room_name ??
-      room?.name ??
-      room?.roomName ??
-      room?.room_number ??
-      room?.room_no ??
-      ""
-  ).trim();
-
-  const roomId = String(room?.room_id ?? room?.id ?? "").trim();
-
-  return (
-    roomId === "301" ||
-    /(?:ห้องประชุม|ห้อง|room)?\s*301(?:\b|$)/i.test(roomName)
-  );
 }
 
 
@@ -304,19 +113,23 @@ export default function Review() {
 
   const [user, setUser] = useState(() => readStoredUser());
 
-  const [reviews, setReviews] = useState(INITIAL_REVIEWS);
-  const [likedReviews, setLikedReviews] = useState(() => new Set());
+  const [reviews, setReviews] = useState([]);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("latest");
   const [ratingFilter, setRatingFilter] = useState("all");
   const [visibleCount, setVisibleCount] = useState(5);
+  const [feedbackLoading, setFeedbackLoading] = useState(true);
+  const [feedbackLoadError, setFeedbackLoadError] = useState("");
+  const [feedbackReload, setFeedbackReload] = useState(0);
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [reviewerName, setReviewerName] = useState("");
   const [selectedRating, setSelectedRating] = useState(0);
   const [feedbackType, setFeedbackType] = useState(FEEDBACK_TYPES.REVIEW);
+  const [feedbackSubject, setFeedbackSubject] = useState("");
+  const [feedbackRoomId, setFeedbackRoomId] = useState("");
   const [reviewMessage, setReviewMessage] = useState("");
   const [feedbackError, setFeedbackError] = useState("");
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [toast, setToast] = useState("");
 
   const [rooms, setRooms] = useState([]);
@@ -342,8 +155,48 @@ export default function Review() {
     }
 
     setUser(storedUser);
-    setReviewerName(getDisplayName(storedUser));
   }, [navigate]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    const controller = new AbortController();
+    const token = localStorage.getItem(TOKEN_KEY);
+
+    async function loadSystemReviews() {
+      setFeedbackLoading(true);
+      setFeedbackLoadError("");
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/system-reviews`, {
+          headers: {
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          signal: controller.signal
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) {
+          throw new Error(data.message || "ไม่สามารถโหลดรีวิวระบบได้");
+        }
+
+        const entries = Array.isArray(data.reviews)
+          ? data.reviews
+          : Array.isArray(data.data)
+            ? data.data
+            : [];
+        setReviews(entries.filter((review) => review.status !== "hidden"));
+      } catch (error) {
+        if (error.name === "AbortError") return;
+        setReviews([]);
+        setFeedbackLoadError(error.message || "ไม่สามารถโหลดรีวิวระบบได้");
+      } finally {
+        if (!controller.signal.aborted) setFeedbackLoading(false);
+      }
+    }
+
+    loadSystemReviews();
+    return () => controller.abort();
+  }, [user, feedbackReload]);
 
   // โหลดรายการห้องตามสิทธิ์ของผู้ใช้
   useEffect(() => {
@@ -464,21 +317,6 @@ export default function Review() {
               ? data.reviews
               : [];
 
-            // ใช้ข้อมูลตัวอย่างของห้อง 301 เฉพาะเมื่อ API ยังไม่มีรีวิว
-            const sampleData = isRoom301(room)
-              ? SAMPLE_ROOM_REVIEWS["301"]
-              : null;
-
-            if (apiReviews.length === 0 && sampleData) {
-              return [
-                id,
-                {
-                  average: sampleData.average_rating,
-                  count: sampleData.review_count,
-                },
-              ];
-            }
-
             return [
               id,
               {
@@ -489,19 +327,6 @@ export default function Review() {
           } catch (error) {
             if (error.name !== "AbortError") {
               console.error(`Failed to load review stats for room ${id}:`, error);
-            }
-
-            // หากเรียก API ไม่สำเร็จ ให้แสดงตัวอย่างเฉพาะห้อง 301
-            if (isRoom301(room)) {
-              const sampleData = SAMPLE_ROOM_REVIEWS["301"];
-
-              return [
-                id,
-                {
-                  average: sampleData.average_rating,
-                  count: sampleData.review_count,
-                },
-              ];
             }
 
             return [id, null];
@@ -529,13 +354,6 @@ function getRoomStat(room) {
     return {
       average: stat.average,
       count: stat.count,
-    };
-  }
-
-  if (isRoom301(room)) {
-    return {
-      average: SAMPLE_ROOM_REVIEWS["301"].average_rating,
-      count: SAMPLE_ROOM_REVIEWS["301"].review_count,
     };
   }
 
@@ -634,19 +452,6 @@ function getRoomStat(room) {
         
         const apiReviews = Array.isArray(data.reviews) ? data.reviews : [];
 
-        const room = rooms.find(
-        (item) => getRoomId(item) === selectedRoomId
-        );
-
-        const sampleData =
-        room && isRoom301(room) ? SAMPLE_ROOM_REVIEWS["301"] : null;
-
-        if (apiReviews.length === 0 && sampleData) {
-        setRoomData({
-            ...data,
-            ...sampleData,
-        });
-        } else {
         setRoomData({
             ...data,
             reviews: apiReviews,
@@ -656,25 +461,14 @@ function getRoomStat(room) {
                 : apiReviews.length,
             average_rating: Number(data.average_rating) || 0,
         });
-        }
 
       } catch (error) {
         if (error.name === "AbortError") return;
 
         console.error("Failed to load room reviews:", error);
 
-        const room = rooms.find(
-          (item) => getRoomId(item) === selectedRoomId
-        );
-
-        // ใช้ข้อมูลตัวอย่างห้อง 301 ได้แม้ API จะเรียกไม่สำเร็จ
-        if (room && isRoom301(room)) {
-          setRoomData(SAMPLE_ROOM_REVIEWS["301"]);
-          setRoomError("");
-        } else {
-          setRoomData(null);
-          setRoomError("ไม่สามารถโหลดรีวิวของห้องนี้ได้");
-        }
+        setRoomData(null);
+        setRoomError("ไม่สามารถโหลดรีวิวของห้องนี้ได้");
       } finally {
         if (!controller.signal.aborted) setRoomLoading(false);
       }
@@ -713,71 +507,45 @@ function getRoomStat(room) {
 
   const averageRating = useMemo(() => {
     if (!reviews.length) return 0;
-
-    return (
-      reviews.reduce((sum, review) => sum + (Number(review.rating) || 0), 0) /
-      reviews.length
-    );
+    return reviews.reduce((sum, review) => sum + (Number(review.rating) || 0), 0) / reviews.length;
   }, [reviews]);
 
   const ratingCounts = useMemo(
-    () =>
-      [5, 4, 3, 2, 1].map((rating) => ({
-        rating,
-        count: reviews.filter((review) => Number(review.rating) === rating)
-          .length,
-      })),
+    () => [5, 4, 3, 2, 1].map((rating) => ({
+      rating,
+      count: reviews.filter((review) => Number(review.rating) === rating).length
+    })),
     [reviews]
   );
 
   const filteredReviews = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("th-TH");
-
     const result = reviews.filter((review) => {
-      const searchableText =
-        `${review.name} ${review.message} ${review.type}`.toLocaleLowerCase(
-          "th-TH"
-        );
-
-      const matchesSearch = searchableText.includes(query);
-      const matchesRating =
-        ratingFilter === "all" || String(review.rating) === ratingFilter;
-
-      return matchesSearch && matchesRating;
+      const searchableText = `${review.name || review.reviewer_name || ""} ${review.message || review.comment || ""}`.toLocaleLowerCase("th-TH");
+      return searchableText.includes(query) &&
+        (ratingFilter === "all" || String(review.rating) === ratingFilter);
     });
 
     return result.sort((a, b) => {
-      if (sort === "highest") {
-        return b.rating - a.rating || b.date.localeCompare(a.date);
-      }
-
-      if (sort === "lowest") {
-        return a.rating - b.rating || b.date.localeCompare(a.date);
-      }
-
-      if (sort === "helpful") {
-        const aHelpful = a.helpful + (likedReviews.has(a.id) ? 1 : 0);
-        const bHelpful = b.helpful + (likedReviews.has(b.id) ? 1 : 0);
-        return bHelpful - aHelpful;
-      }
-
-      return b.date.localeCompare(a.date);
+      const dateA = String(a.date || a.created_at || "");
+      const dateB = String(b.date || b.created_at || "");
+      if (sort === "highest") return Number(b.rating) - Number(a.rating) || dateB.localeCompare(dateA);
+      if (sort === "lowest") return Number(a.rating) - Number(b.rating) || dateB.localeCompare(dateA);
+      return dateB.localeCompare(dateA);
     });
-  }, [reviews, search, sort, ratingFilter, likedReviews]);
+  }, [reviews, search, sort, ratingFilter]);
 
   const visibleReviews = filteredReviews.slice(0, visibleCount);
+
   const roomReviews = roomData?.reviews || [];
   const visibleRoomReviews = roomReviews.slice(0, roomVisible);
 
-  function resetVisibleCount() {
-    setVisibleCount(5);
-  }
-
   function openModal() {
     setFeedbackError("");
-    setReviewerName(getDisplayName(user));
     setSelectedRating(0);
     setFeedbackType(FEEDBACK_TYPES.REVIEW);
+    setFeedbackSubject("");
+    setFeedbackRoomId("");
     setReviewMessage("");
     setModalOpen(true);
   }
@@ -787,59 +555,57 @@ function getRoomStat(room) {
     setFeedbackError("");
   }
 
-  function handleLike(reviewId) {
-    setLikedReviews((previous) => {
-      const next = new Set(previous);
-
-      if (next.has(reviewId)) next.delete(reviewId);
-      else next.add(reviewId);
-
-      return next;
-    });
-  }
-
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
-    const name = reviewerName.trim();
+    const subject = feedbackSubject.trim();
     const message = reviewMessage.trim();
     const isReview = feedbackType === FEEDBACK_TYPES.REVIEW;
 
-    if (!name || !message) {
-      setFeedbackError("กรุณากรอกชื่อและความคิดเห็น");
+    const validationError = validateFeedbackForm({
+      isSystemReview: isReview,
+      rating: selectedRating,
+      subject,
+      description: message
+    });
+    if (validationError) {
+      setFeedbackError(validationError);
       return;
     }
 
-    if (isReview && selectedRating === 0) {
-      setFeedbackError("กรุณาเลือกคะแนนก่อนส่งรีวิว");
-      return;
+    const path = isReview
+      ? "/api/system-reviews"
+      : feedbackType === FEEDBACK_TYPES.COMPLAINT
+        ? "/api/complaints"
+        : "/api/repair-reports";
+    const payload = isReview
+      ? { rating: selectedRating, comment: message }
+      : { subject, description: message, room_id: feedbackRoomId || null };
+    setSubmittingFeedback(true);
+    setFeedbackError("");
+    try {
+      const token = localStorage.getItem(TOKEN_KEY);
+      const response = await fetch(`${API_BASE_URL}${path}`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || "ไม่สามารถส่งข้อมูลได้");
+      }
+      if (isReview) setFeedbackReload((value) => value + 1);
+      setToast(isReview ? "ส่งรีวิวระบบเรียบร้อยแล้ว" : "ส่งข้อมูลเรียบร้อยแล้ว");
+      closeModal();
+    } catch (error) {
+      setFeedbackError(error.message || "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setSubmittingFeedback(false);
     }
-
-    if (isReview) {
-      const newReview = {
-        id: Date.now(),
-        name,
-        date: getBangkokDate(),
-        rating: selectedRating,
-        message,
-        helpful: 0,
-        verified: false,
-        type: FEEDBACK_TYPES.REVIEW,
-      };
-
-      setReviews((previous) => [newReview, ...previous]);
-      setVisibleCount(5);
-      setSearch("");
-      setRatingFilter("all");
-      setSort("latest");
-      setToast("เพิ่มรีวิวตัวอย่างแล้ว (ยังไม่ได้บันทึกลงฐานข้อมูล)");
-    } else if (feedbackType === FEEDBACK_TYPES.COMPLAINT) {
-      setToast("รับข้อมูลร้องเรียนตัวอย่างแล้ว (ยังไม่ได้ส่งไปยังฐานข้อมูล)");
-    } else {
-      setToast("รับข้อมูลแจ้งปัญหาตัวอย่างแล้ว (ยังไม่ได้ส่งไปยังฐานข้อมูล)");
-    }
-
-    closeModal();
   }
 
   return (
@@ -874,8 +640,8 @@ function getRoomStat(room) {
           </div>
 
           <div className="feedback-cta-copy">
-            <h2>รีวิว ร้องเรียน หรือแจ้งปัญหา</h2>
-            <p>แบ่งปันประสบการณ์ แจ้งข้อร้องเรียน หรือแจ้งอุปกรณ์ชำรุด</p>
+            <h2>รีวิวระบบ คอมเพลน หรือแจ้งซ่อม</h2>
+            <p>แบ่งปันความคิดเห็น แจ้งข้อร้องเรียน หรือปัญหาห้องและอุปกรณ์</p>
           </div>
 
           <button
@@ -883,7 +649,7 @@ function getRoomStat(room) {
             className="button button-primary"
             onClick={openModal}
           >
-            ＋ รีวิว / ร้องเรียน / แจ้งปัญหา
+            ＋ รีวิว / คอมเพลน / แจ้งซ่อม
           </button>
         </section>
 
@@ -893,86 +659,50 @@ function getRoomStat(room) {
             <h2 id="overviewTitle">ภาพรวมคะแนนรีวิว</h2>
           </div>
 
-          <div className="overview-grid">
-            <article className="panel overall-rating">
-              <div className="rating-number">
-                <span>{averageRating.toFixed(1)}</span>
-                <small>/ 5</small>
-              </div>
-
-              <div className="stars">
-                <Stars rating={averageRating} />
-              </div>
-
-              <p>
-                จาก <strong>{reviews.length.toLocaleString("en-US")}</strong>{" "}
-                รีวิว
-              </p>
-
-              <span className="subtle-note">
-                คะแนนจากความคิดเห็นของผู้ใช้งาน
-              </span>
-            </article>
-
-            <article className="panel rating-distribution">
-              <h3>สัดส่วนคะแนน</h3>
-
-              <div className="rating-bars">
-                {ratingCounts.map(({ rating, count }) => {
-                  const percent = reviews.length
-                    ? Math.round((count / reviews.length) * 100)
-                    : 0;
-
-                  return (
-                    <div className="rating-row" key={rating}>
-                      <span>{rating} ดาว</span>
-
-                      <div
-                        className="bar-track"
-                        role="progressbar"
-                        aria-label={`${rating} ดาว`}
-                        aria-valuenow={percent}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                      >
-                        <div
-                          className="bar-fill"
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-
-                      <strong>{percent}%</strong>
-                    </div>
-                  );
-                })}
-              </div>
-            </article>
-
-            <article className="panel usage-card">
-              <div className="usage-icon" aria-hidden="true">
-                ♟
-              </div>
-
-              <div className="usage-content">
-                <h3>จำนวนผู้เข้ามาใช้งาน</h3>
-
-                <div className="usage-number">
-                  <span>8,432</span>
-                  <small>คน</small>
+          {feedbackLoading && <p className="empty-state">กำลังโหลดสถิติรีวิว...</p>}
+          {!feedbackLoading && feedbackLoadError && (
+            <p className="empty-state" role="alert">{feedbackLoadError}</p>
+          )}
+          {!feedbackLoading && !feedbackLoadError && (
+            <div className="overview-grid">
+              <article className="panel overall-rating">
+                <div className="rating-number">
+                  <span>{averageRating.toFixed(1)}</span>
+                  <small>/ 5</small>
                 </div>
+                <div className="stars"><Stars rating={averageRating} /></div>
+                <p>จาก <strong>{reviews.length.toLocaleString("en-US")}</strong> รีวิว</p>
+                <span className="subtle-note">คะแนนจาก System Review ที่แสดงได้</span>
+              </article>
 
-                <p>ในช่วง 1 เดือนที่ผ่านมา</p>
-
-                <span className="usage-trend">
-                  ↑ <strong>12%</strong> จากเดือนก่อน
-                </span>
-              </div>
-            </article>
-          </div>
-
-          <p className="data-note">
-            * สถิติผู้เข้าชมและข้อมูลรีวิวบางส่วนเป็นข้อมูลตัวอย่าง
-          </p>
+              <article className="panel rating-distribution">
+                <h3>สัดส่วนคะแนน</h3>
+                <div className="rating-bars">
+                  {ratingCounts.map(({ rating, count }) => {
+                    const percent = reviews.length
+                      ? Math.round((count / reviews.length) * 100)
+                      : 0;
+                    return (
+                      <div className="rating-row" key={rating}>
+                        <span>{rating} ดาว</span>
+                        <div
+                          className="bar-track"
+                          role="progressbar"
+                          aria-label={`${rating} ดาว`}
+                          aria-valuenow={percent}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                        >
+                          <div className="bar-fill" style={{ width: `${percent}%` }} />
+                        </div>
+                        <strong>{percent}%</strong>
+                      </div>
+                    );
+                  })}
+                </div>
+              </article>
+            </div>
+          )}
         </section>
 
         <section className="section-block" aria-labelledby="roomReviewsTitle">
@@ -1046,7 +776,7 @@ function getRoomStat(room) {
               {displayRooms.map((room) => {
                 const id = getRoomId(room);
                 const stat = getRoomStat(room);
-                const image = getRoomImage(room);
+                const image = getApiAssetUrl(room.image_url);
                 const description = getRoomDescription(room);
                 const active = selectedRoomId === id;
 
@@ -1056,20 +786,11 @@ function getRoomStat(room) {
                     className={`room-card ${active ? "active" : ""}`}
                   >
                     <div className="room-card-image">
-                      {image ? (
-                        <img
-                          src={image}
-                          alt={String(getRoomName(room))}
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div
-                          className="room-card-placeholder"
-                          aria-hidden="true"
-                        >
-                          🏫
-                        </div>
-                      )}
+                      <RoomImage
+                        src={image}
+                        alt={`รูปภาพ ${getRoomName(room)}`}
+                        className="room-card-room-image"
+                      />
 
                       <span className="room-card-badge">
                         {getRoomName(room)}
@@ -1197,7 +918,7 @@ function getRoomStat(room) {
                         <div className="review-main">
                           <div className="review-meta">
                             <span className="reviewer-name">
-                              {review.name || "ผู้ใช้งาน"}
+                            {review.name || review.reviewer_name || "ผู้ใช้งาน"}
                             </span>
 
                             {review.verified && (
@@ -1206,15 +927,10 @@ function getRoomStat(room) {
                               </span>
                             )}
 
-                            {!review.verified && (
-                              <span className="sample-review-label">
-                                ข้อมูลตัวอย่าง
-                              </span>
-                            )}
                           </div>
 
                           <p className="review-date">
-                            {formatThaiDate(review.date)} · {review.type || "รีวิว"}
+                        {formatThaiDate(review.date || review.created_at)} · {review.type || "รีวิว"}
                           </p>
 
                           {Number(review.rating) >= 1 && (
@@ -1256,17 +972,16 @@ function getRoomStat(room) {
           )}
         </section>
 
-        <section className="section-block" aria-labelledby="reviewsTitle">
+        <section className="section-block" aria-labelledby="systemReviewsTitle">
           <div className="reviews-toolbar">
             <div className="section-heading">
               <span className="section-icon">▣</span>
-              <h2 id="reviewsTitle">รีวิวจากผู้ใช้งาน</h2>
+              <h2 id="systemReviewsTitle">รีวิวจากผู้ใช้งาน</h2>
             </div>
 
             <div className="review-controls">
               <label className="search-box" htmlFor="reviewSearch">
                 <span aria-hidden="true">⌕</span>
-
                 <input
                   id="reviewSearch"
                   type="search"
@@ -1275,38 +990,35 @@ function getRoomStat(room) {
                   value={search}
                   onChange={(event) => {
                     setSearch(event.target.value);
-                    resetVisibleCount();
+                    setVisibleCount(5);
                   }}
                 />
               </label>
 
               <label className="sort-control" htmlFor="reviewSort">
                 <span className="sr-only">เรียงรีวิว</span>
-
                 <select
                   id="reviewSort"
                   value={sort}
                   onChange={(event) => {
                     setSort(event.target.value);
-                    resetVisibleCount();
+                    setVisibleCount(5);
                   }}
                 >
                   <option value="latest">ล่าสุด</option>
                   <option value="highest">คะแนนสูงสุด</option>
                   <option value="lowest">คะแนนต่ำสุด</option>
-                  <option value="helpful">มีประโยชน์มากที่สุด</option>
                 </select>
               </label>
 
               <label className="rating-filter" htmlFor="ratingFilter">
                 <span className="sr-only">กรองตามคะแนน</span>
-
                 <select
                   id="ratingFilter"
                   value={ratingFilter}
                   onChange={(event) => {
                     setRatingFilter(event.target.value);
-                    resetVisibleCount();
+                    setVisibleCount(5);
                   }}
                 >
                   <option value="all">ทุกคะแนน</option>
@@ -1320,72 +1032,56 @@ function getRoomStat(room) {
             </div>
           </div>
 
-          <div className="review-list" aria-live="polite">
-            {visibleReviews.map((review) => {
-              const liked = likedReviews.has(review.id);
-
-              return (
-                <article className="review-card" key={review.id}>
-                  <div className="avatar" aria-hidden="true">
-                    {(review.name || "?").trim().charAt(0).toUpperCase()}
-                  </div>
-
-                  <div className="review-main">
-                    <div className="review-meta">
-                      <span className="reviewer-name">{review.name}</span>
-
-                      {review.verified && (
-                        <span className="verified">
-                          ✓ เคยจองห้องจริง
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="review-date">
-                      {formatThaiDate(review.date)} · {review.type}
-                    </p>
-
-                    <div
-                      className="review-stars"
-                      aria-label={`${review.rating} จาก 5 ดาว`}
-                    >
-                      <Stars rating={review.rating} />
-                      <span className="rating-text">{review.rating}/5</span>
-                    </div>
-
-                    <p className="review-message">{review.message}</p>
-
-                    <div className="review-actions">
-                      <button
-                        type="button"
-                        className={`action-button ${liked ? "liked" : ""}`}
-                        aria-pressed={liked}
-                        onClick={() => handleLike(review.id)}
-                      >
-                        {liked ? "♥" : "♡"} มีประโยชน์{" "}
-                        {review.helpful + (liked ? 1 : 0)}
-                      </button>
-                    </div>
-                  </div>
-
-                  <span className="review-status">✓ ตัวอย่างรีวิว</span>
-                </article>
-              );
-            })}
-          </div>
-
-          {filteredReviews.length === 0 && (
-            <p className="empty-state">ไม่พบรีวิวที่ตรงกับการค้นหา</p>
+          {feedbackLoading && <p className="empty-state">กำลังโหลดรีวิวระบบ...</p>}
+          {!feedbackLoading && feedbackLoadError && (
+            <p className="empty-state" role="alert">{feedbackLoadError}</p>
           )}
+          {!feedbackLoading && !feedbackLoadError && (
+            <>
+              <div className="review-list" aria-live="polite">
+                {visibleReviews.map((review) => {
+                  const reviewerName = review.name || review.reviewer_name || "ผู้ใช้งาน";
+                  const reviewMessage = review.message || review.comment || "";
+                  return (
+                    <article className="review-card" key={review.id || review.review_id}>
+                      <div className="avatar" aria-hidden="true">
+                        {reviewerName.trim().charAt(0).toUpperCase()}
+                      </div>
+                      <div className="review-main">
+                        <div className="review-meta">
+                          <span className="reviewer-name">{reviewerName}</span>
+                          {review.verified && <span className="verified">✓ ผู้ใช้ที่เข้าสู่ระบบ</span>}
+                        </div>
+                        <p className="review-date">
+                          {formatThaiDate(review.date || review.created_at)} · รีวิวระบบ
+                        </p>
+                        <div className="review-stars" aria-label={`${review.rating} จาก 5 ดาว`}>
+                          <Stars rating={review.rating} />
+                          <span className="rating-text">{review.rating}/5</span>
+                        </div>
+                        <p className="review-message">{reviewMessage}</p>
+                      </div>
+                      <span className="review-status">✓ รีวิวระบบ</span>
+                    </article>
+                  );
+                })}
+              </div>
 
-          {filteredReviews.length > visibleCount && (
-            <button
-              type="button"
-              className="button button-light load-more"
-              onClick={() => setVisibleCount((count) => count + 5)}
-            >
-              แสดงรีวิวเพิ่มเติม
-            </button>
+              {filteredReviews.length === 0 && (
+                <p className="empty-state">
+                  {reviews.length ? "ไม่พบรีวิวที่ตรงกับการค้นหา" : "ยังไม่มีรีวิวระบบ"}
+                </p>
+              )}
+              {filteredReviews.length > visibleCount && (
+                <button
+                  type="button"
+                  className="button button-light load-more"
+                  onClick={() => setVisibleCount((count) => count + 5)}
+                >
+                  แสดงรีวิวเพิ่มเติม
+                </button>
+              )}
+            </>
           )}
         </section>
 
@@ -1417,84 +1113,31 @@ function getRoomStat(room) {
             </button>
 
             <p className="eyebrow">YOUR FEEDBACK MATTERS</p>
-            <h2 id="feedbackModalTitle">รีวิว / ร้องเรียน / แจ้งปัญหา</h2>
+            <h2 id="feedbackModalTitle">รีวิวระบบ / คอมเพลน / แจ้งซ่อม</h2>
 
             <p className="modal-description">
               เลือกประเภทที่ต้องการส่ง เพื่อช่วยพัฒนาระบบและการให้บริการ
             </p>
 
             <form onSubmit={handleSubmit}>
-              <div className="form-field">
-                <label htmlFor="reviewerName">ชื่อที่แสดง</label>
-
-                <input
-                  id="reviewerName"
-                  name="reviewerName"
-                  type="text"
-                  maxLength={60}
-                  required
-                  value={reviewerName}
-                  onChange={(event) => setReviewerName(event.target.value)}
-                />
-              </div>
-
-              <div className="form-field">
-                <label htmlFor="feedbackType">ประเภทความคิดเห็น</label>
-
-                <select
-                  id="feedbackType"
-                  name="feedbackType"
-                  value={feedbackType}
-                  onChange={(event) => {
-                    setFeedbackType(event.target.value);
-                    setSelectedRating(0);
-                    setFeedbackError("");
-                  }}
-                >
-                  <option value={FEEDBACK_TYPES.REVIEW}>รีวิว</option>
-                  <option value={FEEDBACK_TYPES.COMPLAINT}>ร้องเรียน</option>
-                  <option value={FEEDBACK_TYPES.REPAIR}>
-                    แจ้งปัญหา (อุปกรณ์ชำรุด)
-                  </option>
-                </select>
-              </div>
-
-              {feedbackType === FEEDBACK_TYPES.REVIEW && (
-                <fieldset className="rating-field">
-                  <legend>ให้คะแนนความพึงพอใจ</legend>
-
-                  <div
-                    className="star-picker"
-                    role="radiogroup"
-                    aria-label="เลือกคะแนน 1 ถึง 5"
-                  >
-                    {[1, 2, 3, 4, 5].map((rating) => (
-                      <button
-                        key={rating}
-                        type="button"
-                        className={
-                          rating <= selectedRating ? "selected" : ""
-                        }
-                        role="radio"
-                        aria-checked={selectedRating === rating}
-                        aria-label={`${rating} ดาว`}
-                        onClick={() => {
-                          setSelectedRating(rating);
-                          setFeedbackError("");
-                        }}
-                      >
-                        ★
-                      </button>
-                    ))}
-                  </div>
-
-                  <span className="field-hint">
-                    {selectedRating
-                      ? `${selectedRating} จาก 5 ดาว`
-                      : "เลือกคะแนน 1–5 ดาว"}
-                  </span>
-                </fieldset>
-              )}
+              <FeedbackTypeFields
+                feedbackType={feedbackType}
+                onTypeChange={(event) => {
+                  setFeedbackType(event.target.value);
+                  setSelectedRating(0);
+                  setFeedbackError("");
+                }}
+                subject={feedbackSubject}
+                onSubjectChange={setFeedbackSubject}
+                roomId={feedbackRoomId}
+                onRoomChange={setFeedbackRoomId}
+                rating={selectedRating}
+                onRatingChange={(rating) => {
+                  setSelectedRating(rating);
+                  setFeedbackError("");
+                }}
+                rooms={rooms}
+              />
 
               <div className="form-field">
                 <label htmlFor="reviewMessage">
@@ -1512,7 +1155,7 @@ function getRoomStat(room) {
                   maxLength={1000}
                   placeholder={
                     feedbackType === FEEDBACK_TYPES.REVIEW
-                      ? "แบ่งปันประสบการณ์การใช้ห้องของคุณ..."
+                      ? "แบ่งปันความคิดเห็นเกี่ยวกับระบบจองห้อง..."
                       : feedbackType === FEEDBACK_TYPES.COMPLAINT
                         ? "อธิบายเรื่องที่ต้องการร้องเรียน..."
                         : "ระบุอุปกรณ์ที่ชำรุดและรายละเอียดของปัญหา..."
@@ -1529,21 +1172,20 @@ function getRoomStat(room) {
                 </p>
               )}
 
-              <p className="form-note">
-                ข้อมูลที่ส่งในหน้านี้เป็นข้อมูลตัวอย่าง ยังไม่ได้บันทึกลงฐานข้อมูล
-              </p>
+              <p className="form-note">ข้อมูลผู้ส่งจะอ้างอิงจากบัญชีที่เข้าสู่ระบบ</p>
 
               <div className="modal-actions">
                 <button
                   type="button"
                   className="button button-light"
                   onClick={closeModal}
+                  disabled={submittingFeedback}
                 >
                   ยกเลิก
                 </button>
 
-                <button type="submit" className="button button-primary">
-                  ส่ง{feedbackType}
+                <button type="submit" className="button button-primary" disabled={submittingFeedback}>
+                  {submittingFeedback ? "กำลังส่ง..." : `ส่ง${feedbackType}`}
                 </button>
               </div>
             </form>

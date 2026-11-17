@@ -11,8 +11,9 @@
 -- 1. Confirm the selected database is the intended, isolated target.
 -- 2. Take and verify a restorable backup.
 -- 3. Stop all booking writers, scheduled jobs, and old application instances.
--- 4. Never use database/database.sql for this purpose; it drops and recreates
---    BookingCSTU_project.
+-- 4. Never use database/database.sql for this purpose. It is a fresh-schema
+--    bootstrap for an empty BookingCSTU_test database, not an existing-DB
+--    migration.
 --
 -- PRE-FLIGHT (read-only; execute separately and inspect):
 --
