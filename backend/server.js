@@ -1,16 +1,19 @@
+const path = require("path");
 
-require("dotenv").config();
-if (process.env.NODE_ENV !== "production") {
-  require("dotenv").config({
-    path: require("path").join(__dirname, ".env.demo.local")
-  });
-}
+const useDemoDb = process.env.USE_DEMO_DB === "true";
+
+require("dotenv").config({
+  path: path.join(
+    __dirname,
+    useDemoDb ? ".env.demo.local" : ".env"
+  ),
+  override: true
+});
 
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
 const fs = require("fs");
-const path = require("path");
 const multer = require("multer");
 const {
   validateRoomImage,
@@ -693,6 +696,17 @@ app.get(
   }
 );
 
+function blockRoomImageChangesInDemo(req, res, next) {
+  if (process.env.NODE_ENV !== "production") {
+    return res.status(403).json({
+      success: false,
+      message: "Demo ไม่อนุญาตให้อัปโหลดหรือเปลี่ยนแปลงรูปภาพห้อง"
+    });
+  }
+
+  next();
+}
+
 
 /* ========================================
    ADMIN ROOM MANAGEMENT API
@@ -1129,6 +1143,7 @@ app.put(
   "/api/admin/rooms/:roomId/image",
   authenticateSession,
   requireAdmin,
+  blockRoomImageChangesInDemo,
   validateRoomId,
   parseRoomImage,
   async (req, res) => {
@@ -1187,6 +1202,7 @@ app.delete(
   "/api/admin/rooms/:roomId/image",
   authenticateSession,
   requireAdmin,
+  blockRoomImageChangesInDemo,
   validateRoomId,
   async (req, res) => {
     try {

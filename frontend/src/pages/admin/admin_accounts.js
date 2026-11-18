@@ -349,7 +349,7 @@ const summary = useMemo(() => {
             <p className="admin-accounts-eyebrow">
               BOOKING CSTU / ADMIN
             </p>
-            <h1>จัดการบัญชี</h1>
+            <h1>จัดการบัญชีผู้ใช้่</h1>
             <p className="admin-accounts-subtitle">
               ตรวจสอบบัญชีผู้ใช้และจัดการสถานะการใช้งาน
             </p>

@@ -839,7 +839,7 @@ function Mybooking() {
             <div className="booking-alert error-alert" role="alert">
               <span aria-hidden="true">!</span>
               <span>
-                บัญชีถูกระงับจากการไม่มาเช็กอิน {Number(accountInfo?.no_show_count || 0)} ครั้ง
+                บัญชีถูกระงับจากการไม่มาเช็กอิน 
                 ถึง {formatBackendBangkokTime(accountInfo.suspended_until)}
               </span>
             </div>

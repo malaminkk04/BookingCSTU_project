@@ -1,6 +1,14 @@
--- Synthetic fixtures for a fresh, dedicated BookingCSTU_test database only.
--- Verify NODE_ENV, configured DB_NAME, and SELECT DATABASE() before applying.
--- This file does not create or select a database.
+
+-- Synthetic fixtures for BookingCSTU_test only.
+-- Uses the existing 17 rooms from seeds/rooms.sql.
+-- Uses the existing demo accounts copied from BookingCSTU_project.
+-- Do not run this seed more than once.
+--
+-- IMPORTANT:
+-- 1. Select BookingCSTU_test before running this file.
+-- 2. Verify SELECT DATABASE() before applying.
+-- 3. Never run this file against BookingCSTU_project.
+-- 4. This file does not create, drop, or truncate any table.
 
 SET @test_past_weekday = DATE_SUB(
     CURDATE(),
@@ -25,17 +33,9 @@ SET @test_future_weekday = DATE_ADD(
     ) DAY
 );
 
-SET @test_checkin_start = CASE
-    WHEN CURTIME() < '00:15:00' THEN '00:00:00'
-    WHEN CURTIME() >= '23:15:00' THEN '22:30:00'
-    ELSE TIME_SUB(CURTIME(), INTERVAL 15 MINUTE)
-END;
-
-SET @test_checkin_end = CASE
-    WHEN CURTIME() < '00:15:00' THEN '00:45:00'
-    WHEN CURTIME() >= '23:15:00' THEN '23:59:00'
-    ELSE TIME_ADD(CURTIME(), INTERVAL 45 MINUTE)
-END;
+-- Existing accounts copied from BookingCSTU_project.
+-- Apisada's no_show_count is intentionally reset to 0 in Demo.
+-- Teacher retains no_show_count = 1 to match the no_show fixture.
 
 INSERT INTO users (
     user_id,
@@ -51,114 +51,57 @@ INSERT INTO users (
     no_show_count,
     suspended_until
 ) VALUES
-    (
-        900001,
-        'TEST-STUDENT-001',
-        'test_student_001',
-        'student001@example.test',
-        'Test Student One',
-        'ผู้ใช้ทดสอบนักศึกษา 1',
-        'คณะวิทยาศาสตร์และเทคโนโลยี',
-        'Test Major',
-        'student',
-        'user',
-        0,
-        NULL
-    ),
-    (
-        900002,
-        'TEST-TEACHER-001',
-        'test_teacher_001',
-        'teacher001@example.test',
-        'Test Teacher One',
-        'ผู้ใช้ทดสอบอาจารย์ 1',
-        'คณะวิทยาศาสตร์และเทคโนโลยี',
-        'Test Major',
-        'teacher',
-        'user',
-        0,
-        NULL
-    ),
-    (
-        900003,
-        'TEST-ADMIN-001',
-        'test_admin_001',
-        'admin001@example.test',
-        'Test Admin One',
-        'ผู้ใช้ทดสอบผู้ดูแล 1',
-        'คณะวิทยาศาสตร์และเทคโนโลยี',
-        'Test Major',
-        'admin',
-        'admin',
-        0,
-        NULL
-    );
+(
+    1,
+    '6609612301',
+    '6609612301',
+    'apisada.cha@dome.tu.ac.th',
+    'อภิษฎา ไชยเสนา',
+    'อภิษฎา ไชยเสนา',
+    'คณะวิทยาศาสตร์และเทคโนโลยี',
+    'ภาควิชาวิทยาการคอมพิวเตอร์',
+    'student',
+    'user',
+    0,
+    NULL
+),
+(
+    3,
+    'TEACHER001',
+    'teacher_demo',
+    'teacher.demo@example.com',
+    'อาจารย์ตัวอย่าง',
+    'อาจารย์ตัวอย่าง',
+    'คณะวิทยาศาสตร์และเทคโนโลยี',
+    'Computer Science',
+    'teacher',
+    'user',
+    1,
+    NULL
+),
+(
+    45,
+    'ADMINDEMO001',
+    'admin_demo',
+    'admin.demo@example.com',
+    'ผู้ดูแลระบบตัวอย่าง',
+    'ผู้ดูแลระบบตัวอย่าง',
+    'คณะวิทยาศาสตร์และเทคโนโลยี',
+    'Computer Science',
+    'admin',
+    'admin',
+    0,
+    NULL
+);
 
-INSERT INTO rooms (
-    room_id,
-    room_code,
-    floor,
-    room_name,
-    department,
-    capacity,
-    facilities,
-    department_color,
-    is_available,
-    room_type,
-    image_url
-) VALUES
-    (
-        910001,
-        '301',
-        3,
-        'Test Room 301',
-        'Test Department',
-        6,
-        'Synthetic test room',
-        'blue',
-        1,
-        'meeting_room',
-        NULL
-    ),
-    (
-        910002,
-        '302',
-        3,
-        'Test Room 302',
-        'Test Department',
-        6,
-        'Synthetic test room',
-        'blue',
-        1,
-        'meeting_room',
-        NULL
-    ),
-    (
-        910003,
-        '303',
-        3,
-        'Test Room 303',
-        'Test Department',
-        6,
-        'Synthetic test room',
-        'blue',
-        1,
-        'meeting_room',
-        NULL
-    ),
-    (
-        910004,
-        'TEST-T01',
-        2,
-        'Test Teacher Room',
-        'Test Department',
-        12,
-        'Synthetic test room',
-        'blue',
-        1,
-        'meeting_room',
-        NULL
-    );
+-- Existing rooms:
+-- 7  = Room 301
+-- 8  = Room 302
+-- 9  = Room 303
+-- 10 = Room 304
+--
+-- Past bookings are on a weekday.
+-- Future reserved bookings will not be converted to no_show.
 
 INSERT INTO bookings (
     booking_id,
@@ -172,66 +115,80 @@ INSERT INTO bookings (
     cancelled_at,
     checked_in_at
 ) VALUES
-    (
-        920001,
-        900001,
-        910001,
-        @test_past_weekday,
-        '09:00:00',
-        '10:00:00',
-        'Synthetic completed booking',
-        'completed',
-        NULL,
-        TIMESTAMP(@test_past_weekday, '09:00:00')
-    ),
-    (
-        920002,
-        900001,
-        910002,
-        @test_past_weekday,
-        '10:00:00',
-        '11:00:00',
-        'Synthetic cancelled booking',
-        'cancelled',
-        TIMESTAMP(@test_past_weekday, '08:30:00'),
-        NULL
-    ),
-    (
-        920003,
-        900001,
-        910003,
-        @test_past_weekday,
-        '11:00:00',
-        '12:00:00',
-        'Synthetic no-show booking',
-        'no_show',
-        NULL,
-        NULL
-    ),
-    (
-        920004,
-        900001,
-        910001,
-        @test_future_weekday,
-        '09:00:00',
-        '10:00:00',
-        'Synthetic reserved booking',
-        'reserved',
-        NULL,
-        NULL
-    ),
-    (
-        920005,
-        900002,
-        910004,
-        CURDATE(),
-        @test_checkin_start,
-        @test_checkin_end,
-        'Synthetic checked-in status fixture',
-        'checked_in',
-        NULL,
-        TIMESTAMP(CURDATE(), CURTIME())
-    );
+(
+    920001,
+    1,
+    7,
+    @test_past_weekday,
+    '09:00:00',
+    '10:00:00',
+    'Demo completed booking - Student',
+    'completed',
+    NULL,
+    TIMESTAMP(@test_past_weekday, '09:00:00')
+),
+(
+    920002,
+    1,
+    8,
+    @test_past_weekday,
+    '10:00:00',
+    '11:00:00',
+    'Demo cancelled booking - Student',
+    'cancelled',
+    TIMESTAMP(@test_past_weekday, '08:30:00'),
+    NULL
+),
+(
+    920003,
+    3,
+    9,
+    @test_past_weekday,
+    '11:00:00',
+    '12:00:00',
+    'Demo no-show booking - Teacher',
+    'no_show',
+    NULL,
+    NULL
+),
+(
+    920004,
+    1,
+    7,
+    @test_future_weekday,
+    '09:00:00',
+    '10:00:00',
+    'Demo upcoming booking - Student',
+    'reserved',
+    NULL,
+    NULL
+),
+(
+    920005,
+    3,
+    10,
+    @test_past_weekday,
+    '13:00:00',
+    '14:00:00',
+    'Demo completed booking - Teacher',
+    'completed',
+    NULL,
+    TIMESTAMP(@test_past_weekday, '13:00:00')
+),
+(
+    920006,
+    3,
+    10,
+    @test_future_weekday,
+    '14:00:00',
+    '15:00:00',
+    'Demo upcoming booking - Teacher',
+    'reserved',
+    NULL,
+    NULL
+);
+
+-- Room review: only for a completed booking.
 
 INSERT INTO room_reviews (
     review_id,
@@ -243,9 +200,11 @@ INSERT INTO room_reviews (
     930001,
     920001,
     5,
-    'Synthetic room review for a completed test booking.',
+    'ห้องสะอาดและอุปกรณ์พร้อมใช้งาน',
     'visible'
 );
+
+-- System reviews.
 
 INSERT INTO system_reviews (
     review_id,
@@ -254,20 +213,22 @@ INSERT INTO system_reviews (
     comment,
     status
 ) VALUES
-    (
-        940001,
-        900001,
-        5,
-        'Synthetic visible system review.',
-        'visible'
-    ),
-    (
-        940002,
-        900002,
-        3,
-        'Synthetic hidden system review.',
-        'hidden'
-    );
+(
+    940001,
+    1,
+    5,
+    'ระบบจองห้องใช้งานง่ายและสะดวก',
+    'visible'
+),
+(
+    940002,
+    3,
+    3,
+    'ตัวอย่างรีวิวที่ซ่อนอยู่สำหรับทดสอบ Admin',
+    'hidden'
+);
+
+-- Complaints.
 
 INSERT INTO complaints (
     complaint_id,
@@ -277,38 +238,40 @@ INSERT INTO complaints (
     description,
     status
 ) VALUES
-    (
-        950001,
-        900001,
-        NULL,
-        'Synthetic general complaint',
-        'Synthetic complaint without a room reference.',
-        'รอดำเนินการ'
-    ),
-    (
-        950002,
-        900002,
-        910001,
-        'Synthetic room complaint',
-        'Synthetic complaint linked to a test room.',
-        'กำลังตรวจสอบ'
-    ),
-    (
-        950003,
-        900001,
-        910002,
-        'Synthetic processed complaint',
-        'Synthetic complaint in processed state.',
-        'ดำเนินการแล้ว'
-    ),
-    (
-        950004,
-        900002,
-        NULL,
-        'Synthetic finished complaint',
-        'Synthetic complaint in finished state.',
-        'เสร็จสิ้น'
-    );
+(
+    950001,
+    1,
+    NULL,
+    'สอบถามการใช้งานระบบ',
+    'ตัวอย่างคอมเพลนทั่วไปที่ไม่เกี่ยวข้องกับห้อง',
+    'รอดำเนินการ'
+),
+(
+    950002,
+    3,
+    7,
+    'อุปกรณ์ภายในห้องมีปัญหา',
+    'ตัวอย่างคอมเพลนที่เกี่ยวข้องกับห้อง 301',
+    'กำลังตรวจสอบ'
+),
+(
+    950003,
+    1,
+    8,
+    'แจ้งปัญหาการใช้งานห้อง',
+    'ตัวอย่างคอมเพลนที่ดำเนินการแล้ว',
+    'ดำเนินการแล้ว'
+),
+(
+    950004,
+    3,
+    NULL,
+    'สอบถามการจองห้อง',
+    'ตัวอย่างคอมเพลนที่เสร็จสิ้นแล้ว',
+    'เสร็จสิ้น'
+);
+
+-- Repair reports.
 
 INSERT INTO repair_reports (
     repair_id,
@@ -318,35 +281,35 @@ INSERT INTO repair_reports (
     description,
     status
 ) VALUES
-    (
-        960001,
-        900001,
-        NULL,
-        'Synthetic general repair report',
-        'Synthetic repair report without a room reference.',
-        'รอดำเนินการ'
-    ),
-    (
-        960002,
-        900002,
-        910001,
-        'Synthetic room repair report',
-        'Synthetic repair report linked to a test room.',
-        'กำลังซ่อม'
-    ),
-    (
-        960003,
-        900001,
-        910002,
-        'Synthetic completed repair report',
-        'Synthetic repair report in completed state.',
-        'ซ่อมเสร็จ'
-    ),
-    (
-        960004,
-        900002,
-        NULL,
-        'Synthetic cancelled repair report',
-        'Synthetic repair report in cancelled state.',
-        'ยกเลิก'
-    );
+(
+    960001,
+    1,
+    NULL,
+    'แจ้งซ่อมทั่วไป',
+    'ตัวอย่างแจ้งซ่อมที่ไม่เกี่ยวข้องกับห้อง',
+    'รอดำเนินการ'
+),
+(
+    960002,
+    3,
+    7,
+    'แจ้งซ่อมอุปกรณ์ห้อง 301',
+    'ตัวอย่างแจ้งซ่อมที่กำลังดำเนินการ',
+    'กำลังซ่อม'
+),
+(
+    960003,
+    1,
+    8,
+    'แจ้งซ่อมห้อง 302',
+    'ตัวอย่างแจ้งซ่อมที่ดำเนินการเสร็จแล้ว',
+    'ซ่อมเสร็จ'
+),
+(
+    960004,
+    3,
+    NULL,
+    'แจ้งซ่อมทั่วไป',
+    'ตัวอย่างรายการแจ้งซ่อมที่ถูกยกเลิก',
+    'ยกเลิก'
+);

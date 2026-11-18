@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment variables and secrets
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+
+# Uploaded room images - preserve locally, store separately in production
+backend/uploads/rooms/
+
+# Build output
+frontend/build/
+backend/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# macOS
+.DS_Store
