@@ -8,6 +8,12 @@ import RoomImage from "../components/RoomImage";
 const STORAGE_USER_KEY = "user";
 const STORAGE_TOKEN_KEY = "token";
 
+//ตรวจวันปลดระงับ
+const SUSPENSION_MESSAGE =
+  "บัญชีของคุณถูกระงับการจองชั่วคราว 2 สัปดาห์ เนื่องจากไม่มาใช้งานเกิน 2 ครั้ง";
+
+
+
 function localISODate(date = new Date()) {
   return [
     date.getFullYear(),
@@ -41,6 +47,31 @@ function getBangkokDateTime() {
 
 function getBangkokDate() {
   return getBangkokDateTime().slice(0, 10);
+}
+
+function isAccountSuspended(suspendedValue) {
+  if (!suspendedValue) return false;
+
+  let dateValue;
+
+  if (suspendedValue instanceof Date) {
+    dateValue = suspendedValue;
+  } else {
+    const dateString = String(suspendedValue)
+      .trim()
+      .replace(" ", "T");
+
+    const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(dateString);
+
+    dateValue = new Date(
+      hasTimezone ? dateString : `${dateString}+07:00`
+    );
+  }
+
+  return (
+    !Number.isNaN(dateValue.getTime()) &&
+    dateValue.getTime() > Date.now()
+  );
 }
 
 function getMaxBookingDate() {
@@ -447,6 +478,7 @@ function Homepage() {
   const navigate = useNavigate();
 
   const [user, setUser] = useState(null);
+  const [showSuspensionPopup, setShowSuspensionPopup] = useState(false);
   const [rooms, setRooms] = useState([]);
   const [bookingQuota, setBookingQuota] = useState(null);
   const [refreshRooms, setRefreshRooms] = useState(0);
@@ -498,15 +530,19 @@ function Homepage() {
   useEffect(() => {
     try {
       const storedUser = JSON.parse(
-        localStorage.getItem(STORAGE_USER_KEY) || "null"
+        localStorage.getItem(STORAGE_USER_KEY)
       );
 
       if (!storedUser) {
-        navigate("/", { replace: true });
+        setUser(null);
         return;
       }
 
       setUser(storedUser);
+
+      if (isAccountSuspended(storedUser.suspended_until)) {
+        setShowSuspensionPopup(true);
+      }
     } catch (error) {
       console.error("Unable to read stored user:", error);
 
@@ -743,6 +779,10 @@ function Homepage() {
     setBookingError("");
   }
 
+  function closeSuspensionModal() {
+  setShowSuspensionModal(false);
+}
+
   function handleBookingDateChange(value) {
     setBookingDate(value);
 
@@ -809,6 +849,13 @@ function Homepage() {
       setBookingError(
         "ไม่พบรหัสผู้ใช้ กรุณาเข้าสู่ระบบใหม่อีกครั้ง"
       );
+      return;
+    }
+
+    // ตรวจสอบสถานะระงับก่อนส่งคำขอจอง
+
+    if (isAccountSuspended(user.suspended_until)) {
+      setShowSuspensionPopup(true);
       return;
     }
 
@@ -894,13 +941,18 @@ function Homepage() {
         throw error;
       }
 
-      if (!response.ok) {
-        throw new Error(
-          result.message ||
-            result.error ||
-            "จองห้องไม่สำเร็จ กรุณาลองใหม่"
-        );
-      }
+      if (response.status === 403 && result.code === "ACCOUNT_SUSPENDED") {
+      setShowSuspensionPopup(true);
+      return;
+    }
+
+          if (!response.ok) {
+            throw new Error(
+              result.message ||
+                result.error ||
+                "จองห้องไม่สำเร็จ กรุณาลองใหม่"
+            );
+          }
 
       if (result.quota) setBookingQuota(result.quota);
       setDateFilter(bookingDate);
@@ -1139,6 +1191,48 @@ function Homepage() {
           <p>BOOKING CSTU ROOM · Thammasat University</p>
         </footer>
       </main>
+
+      {showSuspensionPopup && (
+  <div className="suspension-modal-backdrop">
+    <section
+      className="suspension-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="suspensionModalTitle"
+    >
+      <button
+        type="button"
+        className="suspension-modal-close"
+        aria-label="ปิดหน้าต่างแจ้งเตือน"
+        onClick={() => setShowSuspensionPopup(false)}
+      >
+        ×
+      </button>
+
+      <div className="suspension-modal-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 3L2.8 20h18.4L12 3z" />
+          <path d="M12 9v5" />
+          <circle cx="12" cy="17" r="0.7" />
+        </svg>
+      </div>
+
+      <h2 id="suspensionModalTitle">
+        บัญชีถูกระงับการจอง
+      </h2>
+
+      <p>
+        บัญชีของคุณถูกระงับการจองชั่วคราว 2 สัปดาห์
+        เนื่องจากไม่มาใช้งานเกิน 2 ครั้ง
+      </p>
+
+      <div className="suspension-modal-status">
+        <span>สถานะบัญชี</span>
+        <strong>ระงับการจองชั่วคราว</strong>
+      </div>
+    </section>
+  </div>
+)}
 
       {selectedRoom && (
         <div

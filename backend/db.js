@@ -280,7 +280,12 @@ function addBooking(booking, callback) {
       }
 
       if (isSuspendedUntilActive(user.suspended_until)) {
-        throw new Error("บัญชีถูกระงับการจองชั่วคราว เนื่องจากไม่มาเช็กอิน");
+        const error = new Error(
+          "บัญชีถูกระงับการจองชั่วคราว 2 สัปดาห์ เนื่องจากไม่มาใช้งานเกิน 2 ครั้ง"
+        );
+
+        error.code = "ACCOUNT_SUSPENDED";
+        throw error;
       }
 
       const [rooms] = await getRoomByCode(connection, roomCode);
@@ -428,6 +433,7 @@ function getMonthlyBookingQuota(userId, date = getBangkokDate(), callback) {
   return callbackResult(promise, callback);
 }
 
+
 function getBookingsByUser(userId, callback) {
   const promise = promisePool
     .execute(
@@ -439,9 +445,14 @@ function getBookingsByUser(userId, callback) {
          r.capacity,
          r.facilities,
          r.department,
-         r.department_color
+         r.department_color,
+         CASE
+           WHEN rr.review_id IS NOT NULL THEN 1
+           ELSE 0
+         END AS reviewed
        FROM bookings b
        JOIN rooms r ON b.room_id = r.room_id
+       LEFT JOIN room_reviews rr ON rr.booking_id = b.booking_id
        WHERE b.user_id = ?
          AND b.status <> 'cancelled'
        ORDER BY b.booking_date DESC, b.start_time DESC`,
@@ -451,6 +462,7 @@ function getBookingsByUser(userId, callback) {
 
   return callbackResult(promise, callback);
 }
+
 
 async function getRoomReview(bookingId, userId) {
   const [rows] = await promisePool.execute(
@@ -780,6 +792,7 @@ function checkInBooking(bookingId, userId, callback) {
   return callbackResult(promise, callback);
 }
 
+
 async function updateBookingStatuses() {
   const connection = await promisePool.getConnection();
 
@@ -792,6 +805,7 @@ async function updateBookingStatuses() {
       CHECK_IN_GRACE_MINUTES
     );
 
+    // เปลี่ยนสถานะรายการที่เช็กอินแล้วและหมดเวลาเป็น completed
     await connection.execute(
       `UPDATE bookings
        SET status = 'completed',
@@ -801,10 +815,11 @@ async function updateBookingStatuses() {
       [now]
     );
 
+    // ค้นหารายการที่ไม่มาเช็กอินเกิน 15 นาที
     const [missedBookings] = await connection.execute(
       `SELECT booking_id, user_id
        FROM bookings
-      WHERE status = 'reserved'
+       WHERE status = 'reserved'
          AND TIMESTAMP(booking_date, start_time) < ?
        FOR UPDATE`,
       [noShowCutoff]
@@ -823,22 +838,23 @@ async function updateBookingStatuses() {
         continue;
       }
 
-      const nextCount = Number(users[0].no_show_count || 0) + 1;
-      const nowTimestamp = parseBangkokDateTime(now);
-      const alreadySuspended = isSuspendedUntilActive(
-        users[0].suspended_until,
-        nowTimestamp
-      );
+      const nextCount =
+        Number(users[0].no_show_count || 0) + 1;
 
-      if (nextCount > 3 && !alreadySuspended) {
+      // ระงับเมื่อ No-show ครบทุก 3 ครั้ง
+      if (nextCount > 0 && nextCount % 3 === 0) {
         await connection.execute(
           `UPDATE users
            SET no_show_count = ?,
-               suspended_until = DATE_ADD(?, INTERVAL ? DAY),
+               suspended_until = DATE_ADD(
+                 GREATEST(COALESCE(suspended_until, ?), ?),
+                 INTERVAL ? DAY
+               ),
                updated_at = CURRENT_TIMESTAMP
            WHERE user_id = ?`,
           [
             nextCount,
+            now,
             now,
             NO_SHOW_SUSPENSION_DAYS,
             booking.user_id
@@ -854,6 +870,7 @@ async function updateBookingStatuses() {
         );
       }
 
+      // เปลี่ยนรายการจองเป็น no_show
       await connection.execute(
         `UPDATE bookings
          SET status = 'no_show',

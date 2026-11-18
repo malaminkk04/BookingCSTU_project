@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -30,13 +31,34 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const [errors, setErrors] = useState({
+    studentId: "",
+    password: "",
+  });
+
   const login = async () => {
-    if (!studentId.trim() || !password) {
-      alert("กรุณากรอก Username และ Password");
+    if (loading) return;
+
+    const usernameEmpty = !studentId.trim();
+    const passwordEmpty = !password;
+
+    if (usernameEmpty || passwordEmpty) {
+      setErrors({
+        studentId: usernameEmpty
+          ? "กรุณากรอก Username"
+          : "",
+        password: passwordEmpty
+          ? "กรุณากรอก Password"
+          : "",
+      });
+
       return;
     }
 
-    if (loading) return;
+    setErrors({
+      studentId: "",
+      password: "",
+    });
 
     setLoading(true);
 
@@ -49,7 +71,11 @@ function Login() {
       const data = response.data;
 
       if (!data.success || !data.user) {
-        alert(data.message || "เข้าสู่ระบบไม่สำเร็จ");
+        setErrors({
+          studentId: "",
+          password:
+            data.message || "Username หรือ Password ไม่ถูกต้อง",
+        });
         return;
       }
 
@@ -92,10 +118,12 @@ function Login() {
         error.response?.data || error.message
       );
 
-      alert(
-        error.response?.data?.message ||
-          "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบ Username และ Password"
-      );
+      setErrors({
+        studentId: "",
+        password:
+          error.response?.data?.message ||
+          "Username หรือ Password ไม่ถูกต้อง",
+      });
     } finally {
       setLoading(false);
     }
@@ -129,16 +157,30 @@ function Login() {
 
           <div className="form-wrapper">
             <label>USERNAME</label>
+
             <input
               type="text"
               placeholder="enter your username or email"
               value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
+              onChange={(e) => {
+                setStudentId(e.target.value);
+                setErrors((previous) => ({
+                  ...previous,
+                  studentId: "",
+                }));
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") login();
               }}
               disabled={loading}
+              aria-invalid={Boolean(errors.studentId)}
             />
+
+            {errors.studentId && (
+              <p className="login-error" role="alert">
+                {errors.studentId}
+              </p>
+            )}
 
             <label>PASSWORD</label>
 
@@ -147,11 +189,18 @@ function Login() {
                 type={showPassword ? "text" : "password"}
                 placeholder="enter your password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setErrors((previous) => ({
+                    ...previous,
+                    password: "",
+                  }));
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") login();
                 }}
                 disabled={loading}
+                aria-invalid={Boolean(errors.password)}
               />
 
               <button
@@ -183,6 +232,12 @@ function Login() {
                 )}
               </button>
             </div>
+
+            {errors.password && (
+              <p className="login-error" role="alert">
+                {errors.password}
+              </p>
+            )}
 
             <div className="button-wrapper">
               <button onClick={login} disabled={loading}>

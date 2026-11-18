@@ -604,8 +604,17 @@ function Mybooking() {
       const checkedIn =
         isAlreadyCheckedIn(booking) || checkedInIds.includes(String(id));
       const status = getEffectiveStatus(booking, checkedIn);
-      const reviewStatusLoaded = typeof booking.reviewed === "boolean" || booking.reviewed === 0 || booking.reviewed === 1;
-      const reviewed = booking.reviewed === true || booking.reviewed === 1;
+      
+      const reviewStatusLoaded =
+        booking.reviewed === true ||
+        booking.reviewed === false ||
+        booking.reviewed === 0 ||
+        booking.reviewed === 1;
+
+      const reviewed =
+        booking.reviewed === true ||
+        booking.reviewed === 1;
+
 
       return {
         booking,
@@ -696,13 +705,7 @@ function Mybooking() {
               </div>
             </div>
 
-            <div className="booking-detail">
-              <span className="detail-icon" aria-hidden="true">№</span>
-              <div>
-                <span className="detail-label">Booking number</span>
-                <strong className="booking-id">{rawId ?? "-"}</strong>
-              </div>
-            </div>
+            
           </div>
         </div>
 

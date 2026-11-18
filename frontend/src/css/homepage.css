@@ -1150,3 +1150,106 @@ body.modal-open {
     gap: 8px;
   }
 }
+
+/* Account Suspension Popup - ใช้ชื่อ Class ให้ตรงกับ JSX */
+
+.suspension-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(3px);
+}
+
+.suspension-modal {
+  position: relative;
+  width: min(440px, 100%);
+  padding: 42px 30px 30px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+.suspension-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #64748b;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.suspension-modal-close:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.suspension-modal-icon {
+  width: 66px;
+  height: 66px;
+  margin: 0 auto 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff0f1;
+  color: #c83c46;
+}
+
+.suspension-modal-icon svg {
+  width: 34px;
+  height: 34px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.suspension-modal h2 {
+  margin: 0 0 14px;
+  color: var(--navy, #1e293b);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.suspension-modal > p {
+  margin: 0 0 20px;
+  color: #65748a;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.suspension-modal-status {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid #f2d5d7;
+  border-radius: 9px;
+  background: #fff7f7;
+  color: #b8323c;
+  font-size: 12px;
+}
+
+@media (max-width: 480px) {
+  .suspension-modal {
+    padding: 42px 22px 26px;
+  }
+
+  .suspension-modal h2 {
+    font-size: 20px;
+  }
+}

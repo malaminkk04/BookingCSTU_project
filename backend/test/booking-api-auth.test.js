@@ -74,7 +74,8 @@ async function withBookingApi(run) {
     reviews: new Map(),
     calls: [],
     mutations: 0,
-    roomRoles: []
+    roomRoles: [],
+    createBookingError: null
   };
   const authenticateSession = createAuthenticateSession(sessions);
   const app = express();
@@ -151,6 +152,10 @@ async function withBookingApi(run) {
     },
     createBooking: async (booking) => {
       state.calls.push(["createBooking", booking.user_id]);
+
+      if (state.createBookingError) {
+        throw state.createBookingError;
+      }
       const created = {
         booking_id: 303,
         ...booking,
@@ -319,6 +324,46 @@ test("booking creation uses session identity and ignores spoofed header, body, a
     assert.equal(state.mutations, 1);
   });
 });
+
+
+test("suspended account receives 403 ACCOUNT_SUSPENDED when creating a booking", async () => {
+  await withBookingApi(async ({ request, state }) => {
+    const suspensionMessage =
+      "บัญชีถูกระงับการจองชั่วคราว 2 สัปดาห์ เนื่องจากไม่มาใช้งานเกิน 2 ครั้ง";
+
+    const error = new Error(suspensionMessage);
+    error.code = "ACCOUNT_SUSPENDED";
+    state.createBookingError = error;
+
+    const response = await request("/api/bookings", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer student-session"
+      },
+      body: JSON.stringify({
+        room: "301",
+        date: "2026-11-18",
+        start_time: "10:00",
+        end_time: "11:00"
+      })
+    });
+
+    assert.equal(response.status, 403);
+    assert.deepEqual(response.body, {
+      success: false,
+      code: "ACCOUNT_SUSPENDED",
+      message: suspensionMessage
+    });
+
+    assert.deepEqual(
+      state.calls.filter(([name]) => name === "createBooking"),
+      [["createBooking", 1]]
+    );
+    assert.equal(state.mutations, 0);
+    assert.equal(state.bookings.length, 3);
+  });
+});
+
 
 test("monthly quota API uses only authenticated user identity and validates the month date", async () => {
   await withBookingApi(async ({ request, state }) => {

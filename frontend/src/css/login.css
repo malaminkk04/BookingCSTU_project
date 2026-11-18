@@ -318,3 +318,16 @@ body {
   stroke-linejoin: round;
 }
 
+
+.login-error {
+  margin: 6px 0 12px;
+  color: #dc2626;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.form-wrapper input[aria-invalid="true"] {
+  border-color: #dc2626;
+}
+

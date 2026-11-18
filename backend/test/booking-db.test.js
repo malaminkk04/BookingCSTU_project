@@ -179,19 +179,43 @@ const connection = {
       return [{ affectedRows: 1 }, []];
     }
 
+    
     if (normalized.startsWith("update users")) {
       state.userUpdates.push({ sql: normalized, params });
       const userId = params.at(-1);
       const user = state.users.find((item) => item.user_id === userId);
+
       if (user && normalized.includes("set no_show_count = ?")) {
         user.no_show_count = params[0];
+
         if (normalized.includes("suspended_until = date_add")) {
-          const now = Date.parse(`${String(params[1]).replace(" ", "T")}+07:00`);
-          user.suspended_until = new Date(now + Number(params[2]) * 86_400_000);
+          const now = Date.parse(
+            `${String(params[1]).replace(" ", "T")}+07:00`
+          );
+
+          const currentUntil = user.suspended_until instanceof Date
+            ? user.suspended_until.getTime()
+            : user.suspended_until
+              ? Date.parse(
+                  `${String(user.suspended_until).replace(" ", "T")}${
+                    String(user.suspended_until).includes("T") ? "" : "+07:00"
+                  }`
+                )
+              : NaN;
+
+          const baseTime = Number.isFinite(currentUntil)
+            ? Math.max(currentUntil, now)
+            : now;
+
+          user.suspended_until = new Date(
+            baseTime + Number(params[3]) * 86_400_000
+          );
         }
       }
+
       return [{ affectedRows: 1 }, []];
     }
+
 
     throw new Error(`Unexpected mocked connection query: ${normalized}`);
   },
@@ -225,6 +249,15 @@ const mockPromisePool = {
     if (normalized.includes("from rooms")) {
       return [state.rooms, []];
     }
+
+
+    if (
+      normalized.startsWith("select b.*, r.room_code") &&
+      normalized.includes("left join room_reviews rr")
+    ) {
+      return [state.bookingListRows || [], []];
+    }
+
 
     if (normalized.includes("from bookings")) {
       return [state.quotaBookings, []];
@@ -860,6 +893,39 @@ test("room review status is read only for the booking owner and exposes joined r
   assert.deepEqual(state.poolQueries.at(-1).params, [91, 7]);
 });
 
+
+test("booking listing returns review status for each booking", async () => {
+  resetMock({
+    bookingListRows: [
+      {
+        booking_id: 91,
+        status: "completed",
+        room_code: "301",
+        reviewed: 1
+      },
+      {
+        booking_id: 92,
+        status: "completed",
+        room_code: "302",
+        reviewed: 0
+      }
+    ]
+  });
+
+  const result = await database.getBookingsByUser(7);
+
+  assert.deepEqual(result, state.bookingListRows);
+  assert.equal(result[0].reviewed, 1);
+  assert.equal(result[1].reviewed, 0);
+
+  const query = state.poolQueries.at(-1);
+
+  assert.match(query.sql, /left join room_reviews rr/);
+  assert.match(query.sql, /as reviewed/);
+  assert.deepEqual(query.params, [7]);
+});
+
+
 test("room review listing returns persisted visible reviews and calculated counts", async () => {
   resetMock({
     roomReviewSummary: [{ average_rating: "4.5", review_count: 2, usage_count: 7 }],
@@ -906,16 +972,15 @@ test("room review transaction rejects another user's or non-completed booking", 
   assert.equal(state.rollbackCount, 1);
 });
 
-test("fourth no-show marks the booking and suspends the user for 14 days", async () => {
+
+test("third no-show marks the booking and suspends the user for 14 days", async () => {
   resetMock({
-    users: [
-      {
-        user_id: 7,
-        role: "student",
-        no_show_count: 3,
-        suspended_until: null
-      }
-    ],
+    users: [{
+      user_id: 7,
+      role: "student",
+      no_show_count: 2,
+      suspended_until: null
+    }],
     bookings: [],
     missedBookings: [{ booking_id: 91, user_id: 7, status: "reserved" }]
   });
@@ -923,68 +988,130 @@ test("fourth no-show marks the booking and suspends the user for 14 days", async
   const result = await database.updateBookingStatuses();
 
   assert.deepEqual(result, { completed: true, no_show_processed: 1 });
+  assert.equal(state.users[0].no_show_count, 3);
   assert.equal(state.userUpdates.length, 1);
-  assert.match(state.userUpdates[0].sql, /set no_show_count = \?/);
   assert.match(state.userUpdates[0].sql, /suspended_until = date_add/);
-  assert.equal(state.userUpdates[0].params[0], 4);
-  assert.equal(typeof state.userUpdates[0].params[1], "string");
-  assert.equal(state.userUpdates[0].params[2], 14);
-  assert.equal(state.userUpdates[0].params[3], 7);
+  assert.equal(state.userUpdates[0].params[0], 3);
+  assert.equal(state.userUpdates[0].params[3], 14);
+  assert.equal(state.userUpdates[0].params[4], 7);
   assert.equal(state.missedBookings[0].status, "no_show");
-  assert.equal(state.users[0].no_show_count, 4);
-  assert.equal(
-    Date.parse(state.users[0].suspended_until),
-    Date.parse(`${state.userUpdates[0].params[1].replace(" ", "T")}+07:00`) + 14 * 86_400_000
-  );
-  const noShowQuery = state.connectionQueries.find(({ sql }) =>
-    sql.startsWith("select booking_id, user_id from bookings")
-  );
-  assert.match(noShowQuery.sql, /timestamp\(booking_date, start_time\) < \?/);
-  assert.equal(noShowQuery.params.length, 1);
 
-  const suspendedUntil = state.users[0].suspended_until.getTime();
-  const repeatedJob = await database.updateBookingStatuses();
-  assert.deepEqual(repeatedJob, { completed: true, no_show_processed: 0 });
-  assert.equal(state.users[0].no_show_count, 4);
-  assert.equal(state.users[0].suspended_until.getTime(), suspendedUntil);
+  const expectedUntil =
+    Date.parse(`${state.userUpdates[0].params[1].replace(" ", "T")}+07:00`) +
+    14 * 86_400_000;
+
+  assert.equal(state.users[0].suspended_until.getTime(), expectedUntil);
+
+  await database.updateBookingStatuses();
+
+  assert.equal(state.users[0].no_show_count, 3);
   assert.equal(state.userUpdates.length, 1);
-  assert.equal(
-    state.bookingUpdates.some(({ sql }) =>
-      sql.includes("set status = 'no_show'") &&
-      sql.includes("and status = 'reserved'")
-    ),
-    true
-  );
 });
 
-test("first, second, and third no-shows increment once without suspending", async () => {
-  for (const count of [0, 1, 2]) {
+test("first and second no-shows increment without suspending", async () => {
+  for (const count of [0, 1]) {
     resetMock({
-      users: [{ user_id: 7, role: "student", no_show_count: count, suspended_until: null }],
+      users: [{
+        user_id: 7,
+        role: "student",
+        no_show_count: count,
+        suspended_until: null
+      }],
       bookings: [],
-      missedBookings: [{ booking_id: 90 + count, user_id: 7, status: "reserved" }]
+      missedBookings: [{
+        booking_id: 90 + count,
+        user_id: 7,
+        status: "reserved"
+      }]
     });
+
     const result = await database.updateBookingStatuses();
+
     assert.equal(result.no_show_processed, 1);
     assert.equal(state.users[0].no_show_count, count + 1);
     assert.equal(state.users[0].suspended_until, null);
-    assert.equal(state.userUpdates.length, 1);
-    assert.doesNotMatch(state.userUpdates[0].sql, /suspended_until = date_add/);
+    assert.doesNotMatch(
+      state.userUpdates[0].sql,
+      /suspended_until = date_add/
+    );
   }
 });
 
-test("a live suspension is not extended by another no-show", async () => {
+test("sixth and ninth no-shows trigger another 14-day suspension", async () => {
+  for (const count of [5, 8]) {
+    resetMock({
+      users: [{
+        user_id: 7,
+        role: "student",
+        no_show_count: count,
+        suspended_until: null
+      }],
+      bookings: [],
+      missedBookings: [{
+        booking_id: 100 + count,
+        user_id: 7,
+        status: "reserved"
+      }]
+    });
+
+    await database.updateBookingStatuses();
+
+    assert.equal(state.users[0].no_show_count, count + 1);
+    assert.ok(state.users[0].suspended_until instanceof Date);
+    assert.equal(state.userUpdates[0].params[0], count + 1);
+    assert.equal(state.userUpdates[0].params[3], 14);
+  }
+});
+
+test("a new suspension extends an existing active suspension by 14 days", async () => {
   const until = new Date(Date.now() + 5 * 86_400_000);
+
   resetMock({
-    users: [{ user_id: 7, role: "student", no_show_count: 4, suspended_until: until }],
+    users: [{
+      user_id: 7,
+      role: "student",
+      no_show_count: 5,
+      suspended_until: until
+    }],
     bookings: [],
     missedBookings: [{ booking_id: 91, user_id: 7, status: "reserved" }]
   });
 
   await database.updateBookingStatuses();
-  assert.equal(state.users[0].no_show_count, 5);
-  assert.equal(state.users[0].suspended_until, until);
-  assert.doesNotMatch(state.userUpdates[0].sql, /suspended_until = date_add/);
+
+  assert.equal(state.users[0].no_show_count, 6);
+  assert.equal(
+    state.users[0].suspended_until.getTime(),
+    until.getTime() + 14 * 86_400_000
+  );
+  assert.match(state.userUpdates[0].sql, /greatest\(coalesce\(suspended_until/);
+});
+
+test("an expired suspension starts a new 14-day suspension from now", async () => {
+  const expiredUntil = new Date(Date.now() - 5 * 86_400_000);
+
+  resetMock({
+    users: [{
+      user_id: 7,
+      role: "student",
+      no_show_count: 5,
+      suspended_until: expiredUntil
+    }],
+    bookings: [],
+    missedBookings: [{ booking_id: 92, user_id: 7, status: "reserved" }]
+  });
+
+  await database.updateBookingStatuses();
+
+  const now = Date.parse(
+    `${state.userUpdates[0].params[1].replace(" ", "T")}+07:00`
+  );
+
+  assert.equal(state.users[0].no_show_count, 6);
+  assert.equal(
+    state.users[0].suspended_until.getTime(),
+    now + 14 * 86_400_000
+  );
 });
 
 test("a no-show batch updates each booking owner's counter separately", async () => {

@@ -221,8 +221,16 @@ function createBookingRouter({
         quota: result.quota || null,
         status: "reserved"
       });
-    } catch (error) {
+        } catch (error) {
       console.error("Create booking error:", error.message);
+
+      if (error.code === "ACCOUNT_SUSPENDED") {
+        return res.status(403).json({
+          success: false,
+          code: "ACCOUNT_SUSPENDED",
+          message: error.message
+        });
+      }
 
       return res.status(400).json({
         success: false,
