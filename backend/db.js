@@ -696,10 +696,10 @@ function deleteBooking(bookingId, userId, callback) {
       await connection.execute(
         `UPDATE bookings
          SET status = 'cancelled',
-             cancelled_at = CURRENT_TIMESTAMP,
+             cancelled_at = ?,
              updated_at = CURRENT_TIMESTAMP
          WHERE booking_id = ? AND user_id = ?`,
-        [bookingId, userId]
+        [now, bookingId, userId]
       );
 
       await connection.commit();
@@ -769,10 +769,10 @@ function checkInBooking(bookingId, userId, callback) {
       await connection.execute(
         `UPDATE bookings
          SET status = 'checked_in',
-             checked_in_at = CURRENT_TIMESTAMP,
+             checked_in_at = ?,
              updated_at = CURRENT_TIMESTAMP
          WHERE booking_id = ?`,
-        [bookingId]
+        [now, bookingId]
       );
 
       await connection.commit();

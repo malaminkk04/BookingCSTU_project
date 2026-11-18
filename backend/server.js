@@ -7,7 +7,7 @@ require("dotenv").config({
     __dirname,
     useDemoDb ? ".env.demo.local" : ".env"
   ),
-  override: true
+  override: false
 });
 
 const express = require("express");
@@ -109,6 +109,27 @@ function getBangkokDate() {
   );
 
   return `${values.year}-${values.month}-${values.day}`;
+}
+
+function getBangkokDateTime() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(new Date());
+
+  const values = Object.fromEntries(
+    parts
+      .filter(part => part.type !== "literal")
+      .map(part => [part.type, part.value])
+  );
+
+  return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`;
 }
 
 function resolveLoginIdentifier(identifier) {
@@ -1892,13 +1913,15 @@ app.patch(
       }
 
       if (action === "suspend") {
+        const suspendedAt = getBangkokDateTime();
+
         await adminAccountDb.execute(
           `
           UPDATE users
-          SET suspended_until = DATE_ADD(NOW(), INTERVAL 30 DAY)
+          SET suspended_until = DATE_ADD(?, INTERVAL 14 DAY)
           WHERE user_id = ?
           `,
-          [userId]
+          [suspendedAt, userId]
         );
       } else {
         await adminAccountDb.execute(
@@ -1920,7 +1943,7 @@ app.patch(
         success: true,
         message:
           action === "suspend"
-            ? "บันทึกการระงับบัญชีเป็นเวลา 30 วันแล้ว"
+            ? "บันทึกการระงับบัญชีเป็นเวลา 14 วันแล้ว"
             : "ปลดระงับบัญชีแล้ว",
         suspended_until: updatedUsers[0]?.suspended_until || null
       });
