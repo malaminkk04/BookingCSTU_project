@@ -54,6 +54,8 @@ const {
 
 const app = express();
 const PORT = Number(process.env.PORT || 5001);
+const ENABLE_BOOKING_SCHEDULER =
+  process.env.ENABLE_BOOKING_SCHEDULER === "true";
 const ROOM_IMAGE_DIRECTORY = path.join(__dirname, "uploads", "rooms");
 const ROOM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
@@ -1971,8 +1973,10 @@ app.use("/api", createFeedbackRouter({
 // ========================================
 // START SERVER
 // ========================================
+
 async function startServer() {
   try {
+    // ตรวจสอบการเชื่อมต่อฐานข้อมูล
     await new Promise((resolve, reject) => {
       db.getConnection((error, connection) => {
         if (error) {
@@ -1984,23 +1988,35 @@ async function startServer() {
       });
     });
 
-    await updateBookingStatuses();
+    // เปิด Scheduler เฉพาะเมื่อกำหนด ENABLE_BOOKING_SCHEDULER=true
+    if (ENABLE_BOOKING_SCHEDULER) {
+      await updateBookingStatuses();
+      console.log("Booking Scheduler enabled");
+    } else {
+      console.log("Booking Scheduler disabled");
+    }
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log(`Health check: http://localhost:${PORT}/health`);
 
-      setInterval(() => {
-        updateBookingStatuses().catch(error => {
-          console.error("Booking status update error:", error.message);
-        });
-      }, 60 * 1000);
+      if (ENABLE_BOOKING_SCHEDULER) {
+        setInterval(() => {
+          updateBookingStatuses().catch(error => {
+            console.error(
+              "Booking status update error:",
+              error.message
+            );
+          });
+        }, 60 * 1000);
+      }
     });
   } catch (error) {
     console.error("Could not start backend:", error.message);
     process.exit(1);
   }
 }
+
 
 // ========================================
 // 404 — ต้องอยู่หลัง API ทุกตัว

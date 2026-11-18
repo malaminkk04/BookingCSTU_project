@@ -23,6 +23,7 @@ const {
   isSuspendedUntilActive
 } = require("./utils/booking-time");
 
+
 const db = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
   port: Number(process.env.DB_PORT || 3306),
@@ -33,8 +34,17 @@ const db = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
   timezone: "+07:00",
-  charset: "utf8mb4"
+  charset: "utf8mb4",
+  ssl:
+    process.env.DB_SSL === "true"
+      ? {
+          minVersion: "TLSv1.2",
+          rejectUnauthorized: true
+        }
+      : undefined
+
 });
+
 
 const promisePool = db.promise();
 
