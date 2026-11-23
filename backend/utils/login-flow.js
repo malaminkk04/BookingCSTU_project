@@ -24,7 +24,7 @@ const DEMO_LOGIN_ACCOUNTS = {
       email: "teacher.demo@example.com",
       displayname_th: "อาจารย์ตัวอย่าง",
       faculty: ALLOWED_FACULTY,
-      major: "Computer Science",
+      major: "ภาควิชาวิทยาการคอมพิวเตอร์",
       role: "teacher"
     }
   }

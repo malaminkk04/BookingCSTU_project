@@ -22,7 +22,7 @@ const CONFIG = {
     statuses: [
       "รอดำเนินการ",
       "กำลังตรวจสอบ",
-      "ดำเนินการแล้ว",
+      "กำลังดำเนินการ",
       "เสร็จสิ้น",
     ],
     fields: [
@@ -112,13 +112,13 @@ function getRecordId(record) {
 
 // กำหนด CSS class ตามสถานะของรายการ
 // เพื่อให้แต่ละสถานะแสดงสีแตกต่างกันตาม CSS
-function getStatusClass(status) {
-  const value = String(status || "").toLowerCase();
 
-  // สถานะที่ดำเนินการเสร็จสิ้นหรือแสดงผล
+function getStatusClass(status) {
+  const value = String(status || "").trim().toLowerCase();
+
+  // สถานะที่เสร็จสิ้นแล้ว: สีเขียว
   if (
     value.includes("เสร็จ") ||
-    value.includes("ดำเนินการแล้ว") ||
     value.includes("แสดงผล") ||
     value === "visible" ||
     value === "resolved" ||
@@ -127,31 +127,29 @@ function getStatusClass(status) {
     return "success";
   }
 
-  // สถานะที่อยู่ระหว่างดำเนินการ
+  // สถานะที่กำลังดำเนินงาน: สีฟ้า
   if (
     value.includes("กำลัง") ||
-    value.includes("ตรวจสอบ") ||
     value === "in_progress"
   ) {
     return "progress";
   }
 
-  // สถานะที่ปิด ยกเลิก หรือซ่อนข้อมูล
+  // สถานะยกเลิกหรือปิด: สีเทา
   if (
     value.includes("ยกเลิก") ||
-    value.includes("เสร็จสิ้น") ||
     value.includes("ซ่อน") ||
     value === "hidden" ||
     value === "cancelled" ||
-    value === "hidden" ||
     value === "closed"
   ) {
     return "closed";
   }
 
-  // กรณีอื่นให้ใช้รูปแบบสถานะรอดำเนินการ
+  // สถานะรอดำเนินการ: สีเหลือง
   return "pending";
 }
+
 
 
 // compomentของหน้า Admin Support

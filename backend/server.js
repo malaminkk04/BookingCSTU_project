@@ -76,6 +76,7 @@ app.use(
   })
 );
 
+//ดึงusername password จากผู้ใช้
 function getUserIdentifier(body = {}) {
   return String(
     body.identifier ||
@@ -85,19 +86,19 @@ function getUserIdentifier(body = {}) {
     ""
   ).trim();
 }
-
+//สร้างtoken
 function createToken(user) {
   const token = crypto.randomBytes(32).toString("hex");
 
   sessions.set(token, {
     userId: Number(user.user_id),
     accessLevel: String(user.access_level || "user"),
-    expiresAt: Date.now() + 8 * 60 * 60 * 1000
+    expiresAt: Date.now() + 8 * 60 * 60 * 1000 // = 8 ชั่วโมง
   });
 
   return token;
 }
-
+//ฟังก์ชั่นดึงวันที่ปัจจุบันในเขตเวลา Bangkok
 function getBangkokDate() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Bangkok",
@@ -112,7 +113,7 @@ function getBangkokDate() {
 
   return `${values.year}-${values.month}-${values.day}`;
 }
-
+//ฟังก์ชั่นดึงวันที่และเวลาปัจจุบันในเขตเวลา Bangkok
 function getBangkokDateTime() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Bangkok",
@@ -133,15 +134,16 @@ function getBangkokDateTime() {
 
   return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`;
 }
-
+//เช็คว่าเป็น email หรือไม่ ถ้าใช่=แปลงเป็น username/tuid
 function resolveLoginIdentifier(identifier) {
   const value = String(identifier || "").trim();
-
+  //ตรวจสอบว่าข้อมูลที่กรอกเป็น Email หรือไม่  
   if (!value.includes("@")) {
-    return Promise.resolve(value);
+    return Promise.resolve(value); // ถ้าไม่ใช่ email ให้ return 
   }
-
+  //สร้าง Promise เพื่อค้นหาข้อมูลในDB
   return new Promise((resolve, reject) => {
+    //ค้นหา username หรือ tu_id จาก email ใน DB
     db.query(
       `SELECT username, tu_id
        FROM users
@@ -152,16 +154,16 @@ function resolveLoginIdentifier(identifier) {
         if (error) {
           return reject(error);
         }
-
+        //ตรวจสอบว่าพบข้อมูลบัญชีหรือไม่
         if (!rows || rows.length === 0) {
           return reject(
             new Error("No account found for this email address")
           );
         }
-
+        //ถ้าเจอบัญชีแล้ว
         const account = rows[0];
         const loginUsername = account.username || account.tu_id;
-
+        //ตรวจสอบว่าพบ Username หรือ TU ID หรือไม่
         if (!loginUsername) {
           return reject(
             new Error("No username found for this email address")
@@ -173,7 +175,7 @@ function resolveLoginIdentifier(identifier) {
     );
   });
 }
-
+//บันทึกข้อมูลผู้ใช้ลงในฐานข้อมูล แล้วตรวจสอบว่าสำเร็จหรือไม่
 function saveUser(userData) {
   return new Promise((resolve, reject) => {
     upsertUser(userData, (error, user) => {
@@ -191,7 +193,7 @@ function saveUser(userData) {
     });
   });
 }
-
+//ค้นหาผู้ใช้ในฐานข้อมูลตาม userId
 function findUserById(userId) {
   return new Promise((resolve, reject) => {
     getUserById(userId, (error, user) => {
@@ -203,7 +205,7 @@ function findUserById(userId) {
     });
   });
 }
-
+//ค้นหาห้องตาม role ของผู้ใช้
 function findRooms(role) {
   return new Promise((resolve, reject) => {
     getRooms(role, (error, rooms) => {
@@ -215,7 +217,7 @@ function findRooms(role) {
     });
   });
 }
-
+//ค้นหาการจองตามวันที่
 function findBookingsByDate(date) {
   return new Promise((resolve, reject) => {
     getBookingsByDate(date, (error, bookings) => {
@@ -227,7 +229,7 @@ function findBookingsByDate(date) {
     });
   });
 }
-
+//ค้นหาการจองของผู้ใช้ตาม userId
 function findBookingsByUser(userId) {
   return new Promise((resolve, reject) => {
     getBookingsByUser(userId, (error, bookings) => {
@@ -239,7 +241,7 @@ function findBookingsByUser(userId) {
     });
   });
 }
-
+//สร้างรายการจองห้อง
 function createBooking(booking) {
   return new Promise((resolve, reject) => {
     addBooking(booking, (error, result) => {
@@ -251,7 +253,7 @@ function createBooking(booking) {
     });
   });
 }
-
+//ยกเลิกการจอง
 function cancelBooking(bookingId, userId) {
   return new Promise((resolve, reject) => {
     deleteBooking(bookingId, userId, (error, result) => {
@@ -263,7 +265,7 @@ function cancelBooking(bookingId, userId) {
     });
   });
 }
-
+//ตรวจสอบบัญชีกับ TU API
 async function verifyWithTuApi(identifier, password) {
   const applicationKey = process.env.TU_API_KEY;
 
@@ -313,7 +315,7 @@ async function verifyWithTuApi(identifier, password) {
 
   return { data, responsePath };
 }
-
+//ส่งผล Login สำเร็จกลับไปยัง Frontend
 function sendLoginSuccess(res, user, token) {
   return res.json({
     success: true,
@@ -335,12 +337,21 @@ function sendLoginSuccess(res, user, token) {
     }
   });
 }
-
+//ตรวจสอบการทำงานของ backend
 app.get("/health", (req, res) => {
   res.json({
     success: true,
     message: "BookingCSTU backend is running",
     port: PORT
+  });
+});
+// เวลาปัจจุบันของ server (ให้ frontend)
+app.get("/api/server-time", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({
+    success: true,
+    now: Date.now(),
+    bangkok: getBangkokDateTime()
   });
 });
 
@@ -353,7 +364,7 @@ app.post("/login", async (req, res) => {
     const password = String(
       req.body.password || req.body.PassWord || ""
     );
-
+    //กรอกข้อมูลไม่ครบ
     if (!identifier || !password) {
       return res.status(400).json({
         success: false,
@@ -372,7 +383,7 @@ app.post("/login", async (req, res) => {
           logTuAffiliationDebug(data, responsePath, { env: process.env })
       }
     );
-
+    //ผู้ใช้ไม่มีสิทธิ์เข้าใช้งานระบบ
     if (!loginResult.authorized) {
       return res.status(403).json({
         success: false,
@@ -398,7 +409,7 @@ app.post("/login", async (req, res) => {
     );
   } catch {
     console.error("Login error: authentication failed");
-
+    //เข้าสู่ระบบไม่สำเร็จ
     return res.status(401).json({
       success: false,
       message: "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบบัญชีผู้ใช้และรหัสผ่าน"
@@ -519,7 +530,7 @@ app.get(
 
 const analyticsDb = db.promise();
 
-// สร้างเงื่อนไขช่วงวันที่
+// กำหนดเงื่อนไข SQL สำหรับเลือกช่วงเวลาที่ต้องการดูสถิติ
 function getAnalyticsDateCondition(range) {
   switch (range) {
     case "7d":
@@ -545,7 +556,7 @@ function getAnalyticsDateCondition(range) {
       return null;
   }
 }
-
+//ตรวจสอบช่วงวันที่ที่ใช้ดูสถิติ
 function validateAnalyticsRange(req, res) {
   const range = String(req.query.range || "7d");
   const condition = getAnalyticsDateCondition(range);

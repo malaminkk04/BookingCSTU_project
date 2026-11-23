@@ -221,7 +221,7 @@
   background: #fff;
   color: #425778;
   font: inherit;
-  font-size: 12px;
+  font-size: 10px;
   outline-color: #829bd0;
 }
 
@@ -557,4 +557,20 @@
   .admin-support-summary:has(.admin-support-summary-card:nth-child(3):last-child) {
     grid-template-columns: 1fr;
   }
+}
+
+.admin-support-status,
+.admin-support-status.pending,
+.admin-support-status.progress,
+.admin-support-status.success,
+.admin-support-status.closed {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  padding: 5px 9px !important;
+  font-size: 10px !important;
+  line-height: normal !important;
+  border-radius: 20px !important;
+  white-space: nowrap !important;
 }

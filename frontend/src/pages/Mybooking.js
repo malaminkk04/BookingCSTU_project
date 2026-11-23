@@ -141,6 +141,23 @@ function isCheckInWindowOpen(booking, now) {
     now <= start + 15 * 60_000;
 }
 
+const CANCEL_LIMIT_MS = 30 * 60_000;
+
+// ยกเลิกได้เมื่อเหลือเวลาก่อนเริ่มจอง >= 30 นาที (ตรงกับ backend)
+function isCancelAvailable(booking, now) {
+  const date = String(
+    booking?.booking_date || booking?.date || booking?.bookingDate || ""
+  ).slice(0, 10);
+  const time = String(booking?.start_time || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}(?::\d{2})?$/.test(time)) {
+    return false;
+  }
+
+  const normalizedTime = time.length === 5 ? `${time}:00` : time;
+  const start = parseBackendBangkokTime(`${date} ${normalizedTime}`);
+  return Number.isFinite(start) && start - now >= CANCEL_LIMIT_MS;
+}
+
 function formatBackendBangkokTime(value) {
   const timestamp = parseBackendBangkokTime(value);
   if (!Number.isFinite(timestamp)) return String(value || "");
@@ -206,6 +223,8 @@ function Mybooking() {
   const [checkedInIds, setCheckedInIds] = useState([]);
 
   // เวลาปัจจุบัน อัปเดตทุก 30 วินาที
+  // ส่วนต่างระหว่างเวลา server กับเวลาเครื่องผู้ใช้ (มิลลิวินาที)
+  const [clockOffset, setClockOffset] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const accountSuspendedUntil = parseBackendBangkokTime(accountInfo?.suspended_until);
   const isAccountSuspended = Number.isFinite(accountSuspendedUntil) && accountSuspendedUntil > now;
@@ -235,11 +254,41 @@ function Mybooking() {
     }
   }, [user, userId, navigate]);
 
-  // อัปเดตเวลาปัจจุบันเป็นระยะ
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 15000);
-    return () => window.clearInterval(timer);
-  }, []);
+  // อัปเดตเวลาปัจจุบัน (ชดเชยด้วยเวลา server) ทุก 5 วินาที
+useEffect(() => {
+  setNow(Date.now() + clockOffset);
+  const timer = window.setInterval(
+    () => setNow(Date.now() + clockOffset),
+    5000
+  );
+  return () => window.clearInterval(timer);
+}, [clockOffset]);
+
+// ดึงเวลา server มาคำนวณ offset
+const syncServerClock = useCallback(async () => {
+  try {
+    const t0 = Date.now();
+    const response = await fetch(`${API_BASE_URL}/api/server-time`, {
+      cache: "no-store",
+    });
+    const data = await response.json();
+    const t1 = Date.now();
+
+    if (response.ok && Number.isFinite(Number(data.now))) {
+      // ชดเชยครึ่งหนึ่งของ round trip
+      setClockOffset(Number(data.now) + (t1 - t0) / 2 - t1);
+    }
+  } catch (err) {
+    console.error("Unable to sync server time:", err);
+  }
+}, []);
+
+// sync ตอนเปิดหน้า และทุก 5 นาที
+useEffect(() => {
+  syncServerClock();
+  const timer = window.setInterval(syncServerClock, 5 * 60_000);
+  return () => window.clearInterval(timer);
+}, [syncServerClock]);
 
   // ซ่อน Toast อัตโนมัติ
   useEffect(() => {
@@ -623,7 +672,8 @@ function Mybooking() {
         status,
         reviewed,
         reviewStatusLoaded,
-        checkInAvailable: isCheckInWindowOpen(booking, now)
+        checkInAvailable: isCheckInWindowOpen(booking, now),
+        cancelAvailable: isCancelAvailable(booking, now)
       };
     })
     .filter((item) => item.status.className !== "cancelled");
