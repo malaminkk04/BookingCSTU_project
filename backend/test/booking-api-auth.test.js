@@ -223,6 +223,20 @@ async function withBookingApi(run) {
   }
 }
 
+function createGpsCoordinates(distanceMeters) {
+  const centerLatitude = 14.0735763;
+  const centerLongitude = 100.606303;
+  const earthRadius = 6371000;
+
+  const latitudeOffset =
+    (distanceMeters / earthRadius) * (180 / Math.PI);
+
+  return {
+    latitude: centerLatitude + latitudeOffset,
+    longitude: centerLongitude
+  };
+}
+
 test("Booking endpoints reject missing, invalid, absent, and expired sessions", async () => {
   await withBookingApi(async ({ request, state, sessions }) => {
     const protectedRequests = [
@@ -411,9 +425,11 @@ test("room role and booking availability are based on the authenticated session"
   });
 });
 
+
 test("non-owners cannot check in or cancel another user's booking", async () => {
   await withBookingApi(async ({ request, state }) => {
     const before = state.bookings.map((booking) => ({ ...booking }));
+
     const headers = {
       Authorization: "Bearer student-session",
       "X-User-Id": "2"
@@ -422,8 +438,13 @@ test("non-owners cannot check in or cancel another user's booking", async () => 
     const checkIn = await request("/api/bookings/202/check-in", {
       method: "POST",
       headers,
-      body: JSON.stringify({ user_id: 2 })
+      body: JSON.stringify({
+        latitude: 14.0735763,
+        longitude: 100.606303,
+        accuracy: 10
+      })
     });
+
     const cancel = await request("/api/bookings/202", {
       method: "DELETE",
       headers
@@ -433,6 +454,7 @@ test("non-owners cannot check in or cancel another user's booking", async () => 
     assert.equal(cancel.status, 400);
     assert.deepEqual(state.bookings, before);
     assert.equal(state.mutations, 0);
+
     assert.deepEqual(
       state.calls.filter(([name]) =>
         name === "checkInBooking" || name === "cancelBooking"
@@ -445,13 +467,24 @@ test("non-owners cannot check in or cancel another user's booking", async () => 
   });
 });
 
+
+
 test("owners can check in and cancel their own bookings", async () => {
   await withBookingApi(async ({ request, state }) => {
-    const headers = { Authorization: "Bearer student-session" };
+    const headers = {
+      Authorization: "Bearer student-session"
+    };
+
     const checkIn = await request("/api/bookings/101/check-in", {
       method: "POST",
-      headers
+      headers,
+      body: JSON.stringify({
+        latitude: 14.0735763,
+        longitude: 100.606303,
+        accuracy: 10
+      })
     });
+
     const cancel = await request("/api/bookings/101", {
       method: "DELETE",
       headers
@@ -462,6 +495,118 @@ test("owners can check in and cancel their own bookings", async () => {
     assert.equal(state.bookings[0].user_id, 1);
     assert.equal(state.bookings[0].status, "cancelled");
     assert.equal(state.mutations, 2);
+  });
+});
+
+test("GPS check-in allows users within 500 meters", async () => {
+  await withBookingApi(async ({ request, state }) => {
+    const coordinates = createGpsCoordinates(250);
+
+    const response = await request("/api/bookings/101/check-in", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer student-session"
+      },
+      body: JSON.stringify(coordinates)
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.success, true);
+    assert.equal(response.body.status, "checked_in");
+
+    assert.equal(state.bookings[0].status, "checked_in");
+    assert.equal(state.mutations, 1);
+
+    assert.deepEqual(
+      state.calls.filter(([name]) => name === "checkInBooking"),
+      [["checkInBooking", 101, 1]]
+    );
+  });
+});
+
+test("GPS check-in allows users at the 500-meter boundary", async () => {
+  await withBookingApi(async ({ request, state }) => {
+    const coordinates = createGpsCoordinates(499.999);
+
+    const response = await request("/api/bookings/101/check-in", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer student-session"
+      },
+      body: JSON.stringify(coordinates)
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.success, true);
+
+    assert.equal(state.bookings[0].status, "checked_in");
+    assert.equal(state.mutations, 1);
+
+    assert.equal(
+      state.calls.filter(([name]) => name === "checkInBooking").length,
+      1
+    );
+  });
+});
+
+test("GPS check-in rejects users outside the 500-meter radius", async () => {
+  await withBookingApi(async ({ request, state }) => {
+    const coordinates = createGpsCoordinates(501);
+
+    const response = await request("/api/bookings/101/check-in", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer student-session"
+      },
+      body: JSON.stringify(coordinates)
+    });
+
+    assert.equal(response.status, 400);
+    assert.equal(response.body.success, false);
+    assert.match(response.body.message, /เกินระยะที่กำหนด 500 เมตร/);
+
+    assert.equal(state.bookings[0].status, "reserved");
+    assert.equal(state.mutations, 0);
+
+    assert.equal(
+      state.calls.filter(([name]) => name === "checkInBooking").length,
+      0
+    );
+  });
+});
+
+test("GPS check-in rejects missing and invalid coordinates", async () => {
+  await withBookingApi(async ({ request, state }) => {
+    const invalidCoordinates = [
+      {},
+      { latitude: 14.0735763 },
+      { longitude: 100.606303 },
+      { latitude: null, longitude: null },
+      { latitude: "14.0735763", longitude: "100.606303" },
+      { latitude: 91, longitude: 100.606303 },
+      { latitude: 14.0735763, longitude: 181 }
+    ];
+
+    for (const coordinates of invalidCoordinates) {
+      const response = await request("/api/bookings/101/check-in", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer student-session"
+        },
+        body: JSON.stringify(coordinates)
+      });
+
+      assert.equal(response.status, 400);
+      assert.equal(response.body.success, false);
+    }
+
+    assert.equal(state.bookings[0].status, "reserved");
+    assert.equal(state.mutations, 0);
+
+    assert.equal(
+      state.calls.filter(([name]) => name === "checkInBooking").length,
+      0
+    );
   });
 });
 

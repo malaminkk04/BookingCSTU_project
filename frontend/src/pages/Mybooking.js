@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../css/homepage.css";
@@ -30,12 +31,10 @@ function getUserId(user) {
   return user?.user_id ?? user?.id ?? user?.userId ?? null;
 }
 
-// id การจอง (DB ใช้ booking_id)
 function getBookingId(booking) {
   return booking?.booking_id ?? booking?.id ?? null;
 }
 
-// เช็กอินแล้ว = status เป็น checked_in หรือมีเวลาเช็กอิน
 function isAlreadyCheckedIn(booking) {
   return Boolean(
     booking?.checked_in_at ||
@@ -100,7 +99,7 @@ function formatTime(timeValue) {
   return value;
 }
 
-// วันเวลาสิ้นสุดการจอง (ใช้เรียงประวัติ และ fallback สถานะ)
+// วันเวลาสิ้นสุดการจอง
 function getBookingEnd(booking) {
   const dateValue =
     booking?.booking_date || booking?.date || booking?.bookingDate;
@@ -120,82 +119,136 @@ function getBookingEnd(booking) {
 
 function parseBackendBangkokTime(value) {
   if (!value) return NaN;
+
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+
   const normalized = String(value).trim().replace(" ", "T");
   const hasTimeZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
-  return Date.parse(hasTimeZone ? normalized : `${normalized}+07:00`);
+
+  return Date.parse(
+    hasTimeZone ? normalized : `${normalized}+07:00`
+  );
 }
 
+// แปลงวันที่ Booking ให้ได้ YYYY-MM-DD
+function normalizeBookingDate(value) {
+  if (!value) return "";
+
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  const match = String(value).trim().match(/^(\d{4}-\d{2}-\d{2})/);
+
+  return match ? match[1] : "";
+}
+
+// ตรวจสอบเวลา Check-in
+// อนุญาตตั้งแต่ 15 นาที ก่อนเวลาเริ่มจอง
+// จนถึง 15 นาที หลังเวลาเริ่มจอง
 function isCheckInWindowOpen(booking, now) {
-  const date = String(
-    booking?.booking_date || booking?.date || booking?.bookingDate || ""
-  ).slice(0, 10);
+  const date = normalizeBookingDate(
+    booking?.booking_date || booking?.date || booking?.bookingDate
+  );
+
   const time = String(booking?.start_time || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}(?::\d{2})?$/.test(time)) {
+
+  const match = time.match(/^(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?$/);
+
+  if (!date || !match) {
     return false;
   }
 
-  const normalizedTime = time.length === 5 ? `${time}:00` : time;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const second = Number(match[3] || 0);
+
+  if (hour > 23 || minute > 59 || second > 59) {
+    return false;
+  }
+
+  const normalizedTime = `${match[1]}:${match[2]}:${String(second).padStart(2, "0")}`;
+
   const start = parseBackendBangkokTime(`${date} ${normalizedTime}`);
-  return Number.isFinite(start) &&
-    now >= start - 15 * 60_000 &&
-    now <= start + 15 * 60_000;
+
+  if (!Number.isFinite(start) || !Number.isFinite(now)) {
+    return false;
+  }
+
+  const checkInStart = start - 15 * 60 * 1000;
+  const checkInEnd = start + 15 * 60 * 1000;
+
+  return now >= checkInStart && now <= checkInEnd;
 }
 
 const CANCEL_LIMIT_MS = 30 * 60_000;
 
-// ยกเลิกได้เมื่อเหลือเวลาก่อนเริ่มจอง >= 30 นาที (ตรงกับ backend)
+// ยกเลิกได้เมื่อเหลือเวลาก่อนเริ่มจอง >= 30 นาที
 function isCancelAvailable(booking, now) {
   const date = String(
     booking?.booking_date || booking?.date || booking?.bookingDate || ""
   ).slice(0, 10);
+
   const time = String(booking?.start_time || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}(?::\d{2})?$/.test(time)) {
+
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+    !/^\d{2}:\d{2}(?::\d{2})?$/.test(time)
+  ) {
     return false;
   }
 
   const normalizedTime = time.length === 5 ? `${time}:00` : time;
   const start = parseBackendBangkokTime(`${date} ${normalizedTime}`);
+
   return Number.isFinite(start) && start - now >= CANCEL_LIMIT_MS;
 }
 
 function formatBackendBangkokTime(value) {
   const timestamp = parseBackendBangkokTime(value);
+
   if (!Number.isFinite(timestamp)) return String(value || "");
+
   return new Intl.DateTimeFormat("th-TH", {
     dateStyle: "medium",
     timeStyle: "short",
-    timeZone: "Asia/Bangkok"
+    timeZone: "Asia/Bangkok",
   }).format(new Date(timestamp));
 }
 
-// แปลง Booking Status จาก API เป็นป้ายที่แสดง
+// แปลง Booking Status
 function getStatus(status) {
   const value = String(status ?? "").trim().toLowerCase();
 
   switch (value) {
     case "reserved":
       return { label: "จองสำเร็จ / รอเช็กอิน", className: "reserved" };
+
     case "checked_in":
       return { label: "เช็กอินแล้ว / กำลังใช้งาน", className: "checked_in" };
+
     case "completed":
       return { label: "ใช้งานเสร็จแล้ว", className: "completed" };
+
     case "cancelled":
       return { label: "ยกเลิกการจอง", className: "cancelled" };
+
     case "no_show":
       return { label: "ไม่มาใช้งาน", className: "no_show" };
+
     default:
       return {
         label: value ? `สถานะการจองไม่รู้จัก: ${value}` : "ไม่พบสถานะการจอง",
-        className: "unknown"
+        className: "unknown",
       };
   }
 }
 
-// สถานะ completed ใช้ค่าจาก Backend เท่านั้น
 function getEffectiveStatus(booking, checkedIn) {
   const base = getStatus(booking.status);
 
-  // เช็กอินสำเร็จแล้วแต่ข้อมูลจากเซิร์ฟเวอร์ยังไม่อัปเดต
   const effective =
     base.className === "reserved" && checkedIn
       ? { label: "เช็กอินแล้ว / กำลังใช้งาน", className: "checked_in" }
@@ -222,14 +275,26 @@ function Mybooking() {
   const [checkingInId, setCheckingInId] = useState(null);
   const [checkedInIds, setCheckedInIds] = useState([]);
 
-  // เวลาปัจจุบัน อัปเดตทุก 30 วินาที
-  // ส่วนต่างระหว่างเวลา server กับเวลาเครื่องผู้ใช้ (มิลลิวินาที)
+  // Pop-up ยืนยันและผลการยกเลิกการจอง
+  const [cancelConfirmTarget, setCancelConfirmTarget] = useState(null);
+  const [cancelSuccessPopup, setCancelSuccessPopup] = useState(false);
+
+  // Pop-up ผลการเช็กอิน
+  const [checkInPopup, setCheckInPopup] = useState(null);
+
+  // เวลาปัจจุบันและ Server clock offset
   const [clockOffset, setClockOffset] = useState(0);
   const [now, setNow] = useState(() => Date.now());
-  const accountSuspendedUntil = parseBackendBangkokTime(accountInfo?.suspended_until);
-  const isAccountSuspended = Number.isFinite(accountSuspendedUntil) && accountSuspendedUntil > now;
 
-  // state ของป๊อปอัพเขียนรีวิว
+  const accountSuspendedUntil = parseBackendBangkokTime(
+    accountInfo?.suspended_until
+  );
+
+  const isAccountSuspended =
+    Number.isFinite(accountSuspendedUntil) &&
+    accountSuspendedUntil > now;
+
+  // State รีวิว
   const [reviewTarget, setReviewTarget] = useState(null);
   const [selectedRating, setSelectedRating] = useState(0);
   const [reviewMessage, setReviewMessage] = useState("");
@@ -244,6 +309,8 @@ function Mybooking() {
     setBookings([]);
     setAccountInfo(null);
     setCheckedInIds([]);
+    setCancelConfirmTarget(null);
+    setCancelSuccessPopup(false);
     navigate("/", { replace: true });
   }, [navigate]);
 
@@ -254,51 +321,57 @@ function Mybooking() {
     }
   }, [user, userId, navigate]);
 
-  // อัปเดตเวลาปัจจุบัน (ชดเชยด้วยเวลา server) ทุก 5 วินาที
-useEffect(() => {
-  setNow(Date.now() + clockOffset);
-  const timer = window.setInterval(
-    () => setNow(Date.now() + clockOffset),
-    5000
-  );
-  return () => window.clearInterval(timer);
-}, [clockOffset]);
+  // อัปเดตเวลาปัจจุบันทุก 5 วินาที
+  useEffect(() => {
+    setNow(Date.now() + clockOffset);
 
-// ดึงเวลา server มาคำนวณ offset
-const syncServerClock = useCallback(async () => {
-  try {
-    const t0 = Date.now();
-    const response = await fetch(`${API_BASE_URL}/api/server-time`, {
-      cache: "no-store",
-    });
-    const data = await response.json();
-    const t1 = Date.now();
+    const timer = window.setInterval(
+      () => setNow(Date.now() + clockOffset),
+      5000
+    );
 
-    if (response.ok && Number.isFinite(Number(data.now))) {
-      // ชดเชยครึ่งหนึ่งของ round trip
-      setClockOffset(Number(data.now) + (t1 - t0) / 2 - t1);
+    return () => window.clearInterval(timer);
+  }, [clockOffset]);
+
+  // ดึงเวลา Server
+  const syncServerClock = useCallback(async () => {
+    try {
+      const t0 = Date.now();
+
+      const response = await fetch(`${API_BASE_URL}/api/server-time`, {
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+      const t1 = Date.now();
+
+      if (response.ok && Number.isFinite(Number(data.now))) {
+        setClockOffset(Number(data.now) + (t1 - t0) / 2 - t1);
+      }
+    } catch (err) {
+      console.error("Unable to sync server time:", err);
     }
-  } catch (err) {
-    console.error("Unable to sync server time:", err);
-  }
-}, []);
+  }, []);
 
-// sync ตอนเปิดหน้า และทุก 5 นาที
-useEffect(() => {
-  syncServerClock();
-  const timer = window.setInterval(syncServerClock, 5 * 60_000);
-  return () => window.clearInterval(timer);
-}, [syncServerClock]);
+  useEffect(() => {
+    syncServerClock();
+
+    const timer = window.setInterval(syncServerClock, 5 * 60_000);
+
+    return () => window.clearInterval(timer);
+  }, [syncServerClock]);
 
   // ซ่อน Toast อัตโนมัติ
   useEffect(() => {
     if (!toast) return undefined;
 
     const timer = window.setTimeout(() => setToast(""), 3500);
+
     return () => window.clearTimeout(timer);
   }, [toast]);
 
   // ---------- ดึงรายการจอง ----------
+
   const fetchBookings = useCallback(async () => {
     if (userId == null || userId === "") {
       setLoading(false);
@@ -347,7 +420,6 @@ useEffect(() => {
       setBookings(bookingList);
       setAccountInfo(data.account || null);
 
-      // รวม id ที่เช็กอินแล้วจากเซิร์ฟเวอร์ (ใช้ Set กันซ้ำ)
       setCheckedInIds((previousIds) => [
         ...new Set([
           ...previousIds,
@@ -372,33 +444,70 @@ useEffect(() => {
     }
   }, [userId, fetchBookings]);
 
+  // ---------- Pop-up Check-in ----------
+
+  const showCheckInPopup = (type, message) => {
+    setCheckInPopup({
+      type,
+      message,
+    });
+  };
+
+  const closeCheckInPopup = useCallback(() => {
+    setCheckInPopup(null);
+  }, []);
+
   // ---------- เช็กอิน ----------
+
   const handleCheckIn = (booking, effectiveStatus, checkedIn) => {
     const bookingId = getBookingId(booking);
 
     if (bookingId == null) {
-      setError("Unable to identify this booking.");
+      showCheckInPopup(
+        "error",
+        "ไม่สามารถตรวจสอบรายการจองได้ กรุณาลองใหม่อีกครั้ง"
+      );
       return;
     }
 
     if (checkedIn) {
-      setNotice("You have already checked in for this booking.");
+      showCheckInPopup(
+        "error",
+        "คุณได้เช็กอินรายการจองนี้ไปแล้ว"
+      );
       return;
     }
 
-    // เช็กอินได้เฉพาะรายการที่ยังเป็น Reserved
     if (effectiveStatus.className !== "reserved") {
-      setError("This booking is not eligible for check-in.");
+      showCheckInPopup(
+        "error",
+        "รายการจองนี้ไม่สามารถเช็กอินได้ เนื่องจากสถานะการจองไม่ถูกต้อง"
+      );
+      return;
+    }
+
+    // ตรวจสอบช่วงเวลาเมื่อกดปุ่ม
+    if (!isCheckInWindowOpen(booking, now)) {
+      showCheckInPopup(
+        "error",
+        "ไม่สามารถเช็กอินได้ เนื่องจากไม่อยู่ในช่วงเวลาที่อนุญาตให้เช็กอิน โดยสามารถเช็กอินได้ตั้งแต่ 15 นาทีก่อนเวลาเริ่มจอง ถึง 15 นาทีหลังเวลาเริ่มจอง"
+      );
       return;
     }
 
     if (!navigator.geolocation) {
-      setError("Your browser does not support location services.");
+      showCheckInPopup(
+        "error",
+        "อุปกรณ์หรือเบราว์เซอร์ของคุณไม่รองรับการระบุตำแหน่ง กรุณาใช้อุปกรณ์ที่รองรับ GPS"
+      );
       return;
     }
 
     if (!window.isSecureContext) {
-      setError("Location access requires HTTPS or localhost. Please open the app securely.");
+      showCheckInPopup(
+        "error",
+        "ไม่สามารถเช็กอินได้ เนื่องจากเว็บไซต์ไม่ได้อยู่ใน HTTPS หรือ localhost กรุณาเปิดเว็บไซต์ผ่านการเชื่อมต่อที่ปลอดภัย"
+      );
       return;
     }
 
@@ -418,9 +527,11 @@ useEffect(() => {
             CHECKIN_LOCATION.longitude
           );
 
+          // อยู่นอกระยะ -> แสดง Pop-up
           if (distance > CHECKIN_RADIUS_METERS) {
-            setError(
-              `You are approximately ${Math.round(distance)} meters away. Please move within ${CHECKIN_RADIUS_METERS} meters of the check-in location.`
+            showCheckInPopup(
+              "error",
+              `ไม่สามารถเช็กอินได้ เนื่องจากคุณไม่ได้อยู่ในระยะที่กำหนด โดยตำแหน่งของคุณอยู่ห่างจากจุดเช็กอินประมาณ ${Math.round(distance)} เมตร กรุณาอยู่ภายในระยะ ${CHECKIN_RADIUS_METERS} เมตร`
             );
             return;
           }
@@ -452,24 +563,35 @@ useEffect(() => {
           }
 
           if (!response.ok || data.success === false) {
-            throw new Error(data.message || "Unable to complete check-in.");
+            showCheckInPopup(
+              "error",
+              data.message || "ไม่สามารถเช็กอินได้ กรุณาลองใหม่อีกครั้ง"
+            );
+            return;
           }
 
-          // บันทึกว่าเช็กอินแล้ว -> สถานะเปลี่ยนเป็น Using ทันที
+          // เช็กอินสำเร็จ
           setCheckedInIds((ids) => [
             ...new Set([...ids, String(bookingId)]),
           ]);
 
-          setNotice(
-            data.message ||
-              `Check-in successful! You are approximately ${Math.round(distance)} meters from the check-in location.`
+          // แสดง Pop-up สำเร็จ
+          showCheckInPopup(
+            "success",
+            data.message || "เช็กอินสำเร็จ คุณสามารถเข้าใช้งานห้องได้แล้ว"
           );
 
+          // อัปเดตรายการจอง
           await fetchBookings();
         } catch (err) {
           console.error("Check-in failed:", err);
-          setError(err.message || "Unable to complete check-in.");
+
+          showCheckInPopup(
+            "error",
+            err.message || "เกิดข้อผิดพลาด ไม่สามารถเช็กอินได้ กรุณาลองใหม่อีกครั้ง"
+          );
         } finally {
+          // ปลดสถานะปุ่มทุกกรณี
           setCheckingInId(null);
         }
       },
@@ -478,14 +600,14 @@ useEffect(() => {
 
         const message =
           err.code === 1
-            ? "Location permission denied. Please allow location access."
+            ? "ไม่สามารถเช็กอินได้ เนื่องจากคุณไม่ได้อนุญาตให้เข้าถึงตำแหน่ง กรุณาเปิด Location Permission"
             : err.code === 2
-              ? "Unable to determine your location. Please try again."
+              ? "ไม่สามารถเช็กอินได้ เนื่องจากไม่สามารถระบุตำแหน่ง GPS ของคุณได้ กรุณาลองอีกครั้ง"
               : err.code === 3
-                ? "Location request timed out. Please try again."
-                : "Unable to access your location.";
+                ? "ไม่สามารถเช็กอินได้ เนื่องจากการค้นหาตำแหน่งใช้เวลานานเกินไป กรุณาลองอีกครั้ง"
+                : "ไม่สามารถเข้าถึงตำแหน่ง GPS ได้ กรุณาลองอีกครั้ง";
 
-        setError(message);
+        showCheckInPopup("error", message);
       },
       {
         enableHighAccuracy: true,
@@ -496,15 +618,43 @@ useEffect(() => {
   };
 
   // ---------- ยกเลิกการจอง ----------
-  const handleCancel = async (booking) => {
+
+  // เมื่อกดปุ่ม Cancel booking ให้เปิด Popup ยืนยันก่อน
+  const handleCancel = (booking) => {
     const bookingId = getBookingId(booking);
 
     if (bookingId == null) {
-      setError("Unable to identify this booking.");
+      setError("ไม่สามารถระบุรายการจองที่ต้องการยกเลิกได้");
       return;
     }
 
-    if (!window.confirm("Are you sure you want to cancel this booking?")) {
+    if (cancellingId != null) {
+      return;
+    }
+
+    setError("");
+    setNotice("");
+    setCancelConfirmTarget(booking);
+  };
+
+  // ปิด Popup ยืนยันการยกเลิก
+  const closeCancelConfirmPopup = () => {
+    if (cancellingId != null) return;
+
+    setCancelConfirmTarget(null);
+  };
+
+  // ยืนยันการยกเลิกและส่งคำขอไปยัง Backend
+  const confirmCancelBooking = async () => {
+    if (!cancelConfirmTarget || cancellingId != null) {
+      return;
+    }
+
+    const bookingId = getBookingId(cancelConfirmTarget);
+
+    if (bookingId == null) {
+      setCancelConfirmTarget(null);
+      setError("ไม่สามารถระบุรายการจองที่ต้องการยกเลิกได้");
       return;
     }
 
@@ -535,27 +685,38 @@ useEffect(() => {
       }
 
       if (!response.ok || data.success === false) {
-        throw new Error(data.message || "Unable to cancel this booking.");
+        throw new Error(data.message || "ไม่สามารถยกเลิกการจองได้");
       }
 
-      // เอารายการออกจากหน้าทันที
+      // นำรายการจองที่ยกเลิกสำเร็จออกจากรายการทันที
       setBookings((previous) =>
         previous.filter(
           (item) => String(getBookingId(item)) !== String(bookingId)
         )
       );
 
-      setNotice(data.message || "Booking cancelled successfully.");
-      await fetchBookings();
+      // ปิด Popup ยืนยัน
+      setCancelConfirmTarget(null);
+
+      // แสดง Popup แจ้งผลสำเร็จ
+      setCancelSuccessPopup(true);
     } catch (err) {
       console.error("Failed to cancel booking:", err);
-      setError(err.message || "Something went wrong while cancelling.");
+
+      setCancelConfirmTarget(null);
+      setError(err.message || "เกิดข้อผิดพลาด ไม่สามารถยกเลิกการจองได้");
     } finally {
       setCancellingId(null);
     }
   };
 
+  // ปิด Popup ยกเลิกสำเร็จ
+  const closeCancelSuccessPopup = () => {
+    setCancelSuccessPopup(false);
+  };
+
   // ---------- ป๊อปอัพเขียนรีวิว ----------
+
   const openReviewModal = (booking) => {
     setFeedbackError("");
     setSelectedRating(0);
@@ -568,7 +729,6 @@ useEffect(() => {
     setFeedbackError("");
   }, []);
 
-  // ปิดด้วยปุ่ม Escape และล็อกการเลื่อนพื้นหลังตอนเปิดป๊อปอัพ
   useEffect(() => {
     if (!reviewTarget) return undefined;
 
@@ -592,10 +752,15 @@ useEffect(() => {
 
     const message = reviewMessage.trim();
 
-    if (!Number.isInteger(selectedRating) || selectedRating < 1 || selectedRating > 5) {
+    if (
+      !Number.isInteger(selectedRating) ||
+      selectedRating < 1 ||
+      selectedRating > 5
+    ) {
       setFeedbackError("กรุณาเลือกคะแนนระหว่าง 1 ถึง 5 ดาว");
       return;
     }
+
     if (!message) {
       setFeedbackError("กรุณากรอกความคิดเห็น");
       return;
@@ -609,18 +774,21 @@ useEffect(() => {
     try {
       const token = localStorage.getItem("token");
 
-      const response = await fetch(`${API_BASE_URL}/api/bookings/${encodeURIComponent(bookingId)}/review`, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          rating: selectedRating,
-          comment: message,
-        }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/bookings/${encodeURIComponent(bookingId)}/review`,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            rating: selectedRating,
+            comment: message,
+          }),
+        }
+      );
 
       const data = await response.json().catch(() => ({}));
 
@@ -628,11 +796,14 @@ useEffect(() => {
         throw new Error(data.message || "ไม่สามารถส่งความคิดเห็นได้");
       }
 
-      setBookings((current) => current.map((booking) =>
-        String(getBookingId(booking)) === String(bookingId)
-          ? { ...booking, reviewed: true }
-          : booking
-      ));
+      setBookings((current) =>
+        current.map((booking) =>
+          String(getBookingId(booking)) === String(bookingId)
+            ? { ...booking, reviewed: true }
+            : booking
+        )
+      );
+
       setToast("ขอบคุณสำหรับรีวิวของคุณ");
 
       closeReviewModal();
@@ -646,14 +817,15 @@ useEffect(() => {
 
   // ---------- เตรียมข้อมูลแสดงผล ----------
 
-  // คำนวณสถานะของแต่ละรายการ และซ่อนรายการที่ยกเลิกแล้ว
   const items = bookings
     .map((booking, index) => {
       const id = getBookingId(booking) ?? index;
+
       const checkedIn =
         isAlreadyCheckedIn(booking) || checkedInIds.includes(String(id));
+
       const status = getEffectiveStatus(booking, checkedIn);
-      
+
       const reviewStatusLoaded =
         booking.reviewed === true ||
         booking.reviewed === false ||
@@ -661,9 +833,7 @@ useEffect(() => {
         booking.reviewed === 1;
 
       const reviewed =
-        booking.reviewed === true ||
-        booking.reviewed === 1;
-
+        booking.reviewed === true || booking.reviewed === 1;
 
       return {
         booking,
@@ -673,17 +843,17 @@ useEffect(() => {
         reviewed,
         reviewStatusLoaded,
         checkInAvailable: isCheckInWindowOpen(booking, now),
-        cancelAvailable: isCancelAvailable(booking, now)
+        cancelAvailable: isCancelAvailable(booking, now),
       };
     })
     .filter((item) => item.status.className !== "cancelled");
 
-  // รายการปัจจุบัน (Reserved / Checked in)
+  // รายการปัจจุบัน
   const activeItems = items.filter(
     (item) => !["completed", "no_show"].includes(item.status.className)
   );
 
-  // ประวัติการจอง (Completed / No show) เรียงล่าสุดก่อน
+  // ประวัติการจอง
   const historyItems = items
     .filter((item) => ["completed", "no_show"].includes(item.status.className))
     .sort(
@@ -692,15 +862,26 @@ useEffect(() => {
         (getBookingEnd(a.booking)?.getTime() || 0)
     );
 
-  // การ์ดการจอง (ใช้ทั้งรายการปัจจุบันและประวัติ)
-  const renderBookingCard = (item, isHistory) => {
-    const { booking, id, checkedIn, status, reviewed, reviewStatusLoaded, checkInAvailable } = item;
+  // ---------- Booking Card ----------
 
-    const roomName = booking.room_name || booking.room || booking.roomName || "Room";
-    const bookingDate = booking.booking_date || booking.date || booking.bookingDate;
+  const renderBookingCard = (item, isHistory) => {
+    const {
+      booking,
+      id,
+      checkedIn,
+      status,
+      reviewed,
+      reviewStatusLoaded,
+    } = item;
+
+    const roomName =
+      booking.room_name || booking.room || booking.roomName || "Room";
+
+    const bookingDate =
+      booking.booking_date || booking.date || booking.bookingDate;
+
     const rawId = getBookingId(booking);
 
-    // เช็กอิน/ยกเลิกได้เฉพาะรายการที่ยังเป็น Reserved
     const canAct = status.className === "reserved";
 
     return (
@@ -723,13 +904,13 @@ useEffect(() => {
                   <path d="M3 14h18M7 14V9h4v5m2 0V9h4v5M2 21h20" />
                 </svg>
               </div>
+
               <div>
                 <p className="room-label">RESERVED ROOM</p>
                 <h3>{roomName}</h3>
               </div>
             </div>
 
-            {/* ป้ายสถานะตาม Booking Status */}
             <span className={`booking-status status-${status.className}`}>
               <span className="status-dot" />
               {status.label}
@@ -754,24 +935,22 @@ useEffect(() => {
                 </strong>
               </div>
             </div>
-
-            
           </div>
         </div>
 
         <div className="booking-card-actions">
-          {/* ก่อนใช้งาน: ปุ่มเช็กอิน + ยกเลิก */}
+          {/* ก่อนใช้งาน: Check-in + Cancel */}
           {canAct && (
             <>
               <button
                 type="button"
                 className="checkin-button"
                 onClick={() => handleCheckIn(booking, status, checkedIn)}
-                disabled={checkingInId === rawId || !checkInAvailable}
+                disabled={checkingInId === rawId || checkedIn}
                 title={
-                  checkInAvailable
-                    ? "Check-in window is open"
-                    : "Check-in opens 15 minutes before the booking and closes 15 minutes after it starts"
+                  checkedIn
+                    ? "You have already checked in"
+                    : "Click to check-in"
                 }
               >
                 {checkingInId === rawId ? "Checking in..." : "Check-in"}
@@ -788,7 +967,7 @@ useEffect(() => {
             </>
           )}
 
-          {/* ใช้งานเสร็จสิ้น: ปุ่มเขียนรีวิว (No show ไม่แสดง) */}
+          {/* ประวัติการจอง: รีวิว */}
           {isHistory && (
             <BookingReviewButton
               status={status.className}
@@ -816,7 +995,8 @@ useEffect(() => {
     );
   };
 
-  // ---------- ส่วนแสดงผล (UI) ----------
+  // ---------- UI ----------
+
   return (
     <div className="homepage mybooking-page">
       <Navbar />
@@ -840,7 +1020,7 @@ useEffect(() => {
           </div>
         </section>
 
-        {/* ---------- รายการจองปัจจุบัน ---------- */}
+        {/* รายการจองปัจจุบัน */}
         <section className="booking-section">
           <div className="booking-section-heading">
             <div>
@@ -879,7 +1059,11 @@ useEffect(() => {
             <div className="booking-alert success-alert" role="status">
               <span aria-hidden="true">✓</span>
               <span>{notice}</span>
-              <button type="button" aria-label="Dismiss message" onClick={() => setNotice("")}>
+              <button
+                type="button"
+                aria-label="Dismiss message"
+                onClick={() => setNotice("")}
+              >
                 ×
               </button>
             </div>
@@ -889,7 +1073,7 @@ useEffect(() => {
             <div className="booking-alert error-alert" role="alert">
               <span aria-hidden="true">!</span>
               <span>
-                บัญชีถูกระงับจากการไม่มาเช็กอิน 
+                บัญชีถูกระงับจากการไม่มาเช็กอิน
                 ถึง {formatBackendBangkokTime(accountInfo.suspended_until)}
               </span>
             </div>
@@ -899,7 +1083,12 @@ useEffect(() => {
             <div className="booking-alert error-alert" role="alert">
               <span aria-hidden="true">!</span>
               <span>{error}</span>
-              <button type="button" className="alert-retry" onClick={fetchBookings} disabled={loading}>
+              <button
+                type="button"
+                className="alert-retry"
+                onClick={fetchBookings}
+                disabled={loading}
+              >
                 Try again
               </button>
             </div>
@@ -916,7 +1105,11 @@ useEffect(() => {
               <div className="state-icon error-state-icon">!</div>
               <h3>Unable to load bookings</h3>
               <p>Please check your connection and try again.</p>
-              <button type="button" className="primary-button" onClick={fetchBookings}>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={fetchBookings}
+              >
                 Try again
               </button>
             </div>
@@ -928,7 +1121,11 @@ useEffect(() => {
                 You don't have any upcoming reservations. Find a room and make
                 a new booking.
               </p>
-              <button type="button" className="primary-button" onClick={() => navigate("/homepage")}>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => navigate("/homepage")}
+              >
                 Explore rooms <span aria-hidden="true">→</span>
               </button>
             </div>
@@ -939,7 +1136,7 @@ useEffect(() => {
           )}
         </section>
 
-        {/* ---------- ประวัติการจอง ---------- */}
+        {/* ประวัติการจอง */}
         {!loading && !(error && bookings.length === 0) && (
           <section className="booking-section booking-history-section">
             <div className="booking-section-heading">
@@ -947,8 +1144,7 @@ useEffect(() => {
                 <p className="section-eyebrow">HISTORY</p>
                 <h2>Booking History</h2>
                 <p className="section-description">
-                  Completed reservations. Share your experience to help us
-                  improve.
+                  Completed reservations. Share your experience to help us improve.
                 </p>
               </div>
             </div>
@@ -973,7 +1169,176 @@ useEffect(() => {
         </footer>
       </main>
 
-      {/* ---------- ป๊อปอัพเขียนรีวิว / ข้อเสนอแนะ ---------- */}
+      {/* ---------- Cancel Confirmation Popup ---------- */}
+      {cancelConfirmTarget && (
+        <div className="rv-backdrop cancel-booking-backdrop">
+          <section
+            className="rv-modal cancel-booking-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancelBookingTitle"
+          >
+            <div className="cancel-booking-icon" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 9v4" />
+                <path d="M12 17h.01" />
+                <path d="M10.3 3.9 2.6 17.2A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.8L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+              </svg>
+            </div>
+
+            <h2 id="cancelBookingTitle">ยืนยันการยกเลิกการจอง</h2>
+
+            <p className="cancel-booking-message">
+              คุณต้องการยกเลิกการจองใช่หรือไม่
+            </p>
+
+            <div className="cancel-booking-actions">
+              <button
+                type="button"
+                className="cancel-confirm-no"
+                onClick={closeCancelConfirmPopup}
+                disabled={cancellingId != null}
+              >
+                ไม่
+              </button>
+
+              <button
+                type="button"
+                className="cancel-confirm-yes"
+                onClick={confirmCancelBooking}
+                disabled={cancellingId != null}
+              >
+                {cancellingId != null ? "กำลังยกเลิก..." : "ใช่"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* ---------- Cancel Success Popup ---------- */}
+      {cancelSuccessPopup && (
+        <div className="rv-backdrop cancel-success-backdrop">
+          <section
+            className="rv-modal cancel-success-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancelSuccessTitle"
+          >
+            <button
+              type="button"
+              className="rv-modal-close"
+              aria-label="ปิดหน้าต่าง"
+              onClick={closeCancelSuccessPopup}
+            >
+              ×
+            </button>
+
+            <div className="cancel-success-icon" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M5 12l4 4L19 6" />
+              </svg>
+            </div>
+
+            <h2 id="cancelSuccessTitle">ยกเลิกการจองสำเร็จ</h2>
+          </section>
+        </div>
+      )}
+
+      {/* ---------- Check-in Result Popup ---------- */}
+      {checkInPopup && (
+        <div
+          className="rv-backdrop checkin-popup-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeCheckInPopup();
+            }
+          }}
+        >
+          <section
+            className="rv-modal checkin-result-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="checkinPopupTitle"
+          >
+            <button
+              type="button"
+              className="rv-modal-close"
+              aria-label="ปิดหน้าต่าง"
+              onClick={closeCheckInPopup}
+            >
+              ×
+            </button>
+
+            <div
+              className={`checkin-result-icon ${
+                checkInPopup.type === "success" ? "success" : "error"
+              }`}
+            >
+              {checkInPopup.type === "success" ? (
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M5 12l4 4L19 6" />
+                </svg>
+              ) : (
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 9v4" />
+                  <path d="M12 17h.01" />
+                  <circle cx="12" cy="12" r="9" />
+                </svg>
+              )}
+            </div>
+
+            <h2 id="checkinPopupTitle">
+              {checkInPopup.type === "success"
+                ? "เช็กอินสำเร็จ"
+                : "ไม่สามารถเช็กอินได้"}
+            </h2>
+
+            <p className="checkin-result-message">
+              {checkInPopup.message}
+            </p>
+
+            <div className="rv-modal-actions checkin-popup-actions">
+              <button
+                type="button"
+                className="rv-btn rv-btn-primary"
+                onClick={closeCheckInPopup}
+              >
+                ตกลง
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* ---------- Review Popup ---------- */}
       {reviewTarget && (
         <div
           className="rv-backdrop"
@@ -998,6 +1363,7 @@ useEffect(() => {
 
             <p className="rv-eyebrow">YOUR FEEDBACK MATTERS</p>
             <h2 id="feedbackModalTitle">รีวิวห้อง</h2>
+
             <p className="rv-modal-description">
               ห้อง{" "}
               <strong>
@@ -1010,35 +1376,35 @@ useEffect(() => {
             </p>
 
             <form onSubmit={handleSubmitReview}>
-                <fieldset className="rv-rating-field">
-                  <legend>ให้คะแนนความพึงพอใจ</legend>
+              <fieldset className="rv-rating-field">
+                <legend>ให้คะแนนความพึงพอใจ</legend>
 
-                  <div
-                    className="rv-star-picker"
-                    role="radiogroup"
-                    aria-label="เลือกคะแนน 1 ถึง 5"
-                  >
-                    {[1, 2, 3, 4, 5].map((rating) => (
-                      <button
-                        key={rating}
-                        type="button"
-                        className={rating <= selectedRating ? "selected" : ""}
-                        role="radio"
-                        aria-checked={selectedRating === rating}
-                        aria-label={`${rating} ดาว`}
-                        onClick={() => setSelectedRating(rating)}
-                      >
-                        ★
-                      </button>
-                    ))}
-                  </div>
+                <div
+                  className="rv-star-picker"
+                  role="radiogroup"
+                  aria-label="เลือกคะแนน 1 ถึง 5"
+                >
+                  {[1, 2, 3, 4, 5].map((rating) => (
+                    <button
+                      key={rating}
+                      type="button"
+                      className={rating <= selectedRating ? "selected" : ""}
+                      role="radio"
+                      aria-checked={selectedRating === rating}
+                      aria-label={`${rating} ดาว`}
+                      onClick={() => setSelectedRating(rating)}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
 
-                  <span className="rv-field-hint">
-                    {selectedRating
-                      ? `${selectedRating} จาก 5 ดาว`
-                      : "เลือกคะแนน 1–5 ดาว"}
-                  </span>
-                </fieldset>
+                <span className="rv-field-hint">
+                  {selectedRating
+                    ? `${selectedRating} จาก 5 ดาว`
+                    : "เลือกคะแนน 1–5 ดาว"}
+                </span>
+              </fieldset>
 
               <div className="rv-field">
                 <label htmlFor="reviewMessage">ความคิดเห็น</label>
@@ -1073,6 +1439,7 @@ useEffect(() => {
                 >
                   ยกเลิก
                 </button>
+
                 <button
                   type="submit"
                   className="rv-btn rv-btn-primary"
@@ -1086,7 +1453,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* ข้อความแจ้งผลหลังส่งรีวิว */}
+      {/* Toast หลังส่งรีวิว */}
       {toast && (
         <div className="rv-toast" role="status" aria-live="polite">
           {toast}

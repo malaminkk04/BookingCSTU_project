@@ -774,3 +774,286 @@
     width: 100%;
   }
 }
+
+
+/* ==============================
+   CHECK-IN RESULT POPUP
+============================== */
+
+.checkin-result-modal {
+  text-align: center;
+}
+
+.checkin-result-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.checkin-result-icon svg {
+  width: 38px;
+  height: 38px;
+}
+
+.checkin-result-icon.success {
+  color: #16a34a;
+  background: #dcfce7;
+}
+
+.checkin-result-icon.error {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.checkin-result-modal h2 {
+  margin-bottom: 12px;
+}
+
+.checkin-result-message {
+  line-height: 1.8;
+  color: #64748b;
+  margin: 0 auto;
+  max-width: 420px;
+  overflow-wrap: anywhere;
+}
+
+.checkin-popup-actions {
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.checkin-popup-actions .rv-btn {
+  min-width: 130px;
+}
+
+/* Check-in popup responsive */
+@media (max-width: 480px) {
+  .checkin-result-modal {
+    width: calc(100% - 32px);
+    padding: 24px 20px;
+  }
+
+  .checkin-result-icon {
+    width: 62px;
+    height: 62px;
+  }
+
+  .checkin-result-icon svg {
+    width: 32px;
+    height: 32px;
+  }
+}
+/* Popup อยู่กึ่งกลางหน้าจอตลอด */
+.checkin-time-error-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+/* กล่อง Popup */
+.checkin-time-error-content {
+  position: relative;
+  width: 90%;
+  max-width: 420px;
+  margin: auto;
+}
+
+/* ขนาดฟอนต์คำอธิบาย ลดลงเล็กน้อย */
+.checkin-time-error-message {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ข้อความรายละเอียดเพิ่มเติม */
+.checkin-time-error-detail {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ========================================
+   CANCEL BOOKING POPUPS
+======================================== */
+
+/* พื้นหลัง Popup ยกเลิกการจอง */
+.mybooking-page .cancel-booking-backdrop,
+.mybooking-page .cancel-success-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(18, 30, 53, 0.56);
+  overflow-y: auto;
+}
+
+/* กล่อง Popup ยืนยันและยกเลิกสำเร็จ */
+.mybooking-page .cancel-booking-modal,
+.mybooking-page .cancel-success-modal {
+  position: relative;
+  box-sizing: border-box;
+  width: min(100%, 430px);
+  padding: 34px 30px;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+  color: #344054;
+  font-family: "IBM Plex Sans Thai", Inter, sans-serif;
+  text-align: center;
+}
+
+/* ไอคอน Popup */
+.mybooking-page .cancel-booking-icon,
+.mybooking-page .cancel-success-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+  height: 70px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+}
+
+.mybooking-page .cancel-booking-icon {
+  background: #fff4e8;
+  color: #e99a35;
+}
+
+.mybooking-page .cancel-success-icon {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.mybooking-page .cancel-booking-icon svg,
+.mybooking-page .cancel-success-icon svg {
+  display: block;
+  width: 36px;
+  height: 36px;
+}
+
+/* หัวข้อ Popup */
+.mybooking-page .cancel-booking-modal h2,
+.mybooking-page .cancel-success-modal h2 {
+  margin: 0;
+  color: #273c70;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+/* ข้อความยืนยัน */
+.mybooking-page .cancel-booking-message {
+  margin: 12px 0 0;
+  color: #788397;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+/* ปุ่ม ใช่ / ไม่ */
+.mybooking-page .cancel-booking-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.mybooking-page .cancel-booking-actions button {
+  min-width: 115px;
+  min-height: 44px;
+  padding: 0 22px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.15s ease;
+}
+
+.mybooking-page .cancel-booking-actions button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.mybooking-page .cancel-booking-actions button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+/* ปุ่ม ไม่ */
+.mybooking-page .cancel-confirm-no {
+  border-color: #d3e0f7;
+  background: #e8f0fe;
+  color: #273c70;
+}
+
+.mybooking-page .cancel-confirm-no:hover:not(:disabled) {
+  border-color: #b7cbed;
+  background: #d6e4fc;
+}
+
+/* ปุ่ม ใช่ */
+.mybooking-page .cancel-confirm-yes {
+  border-color: #dc5555;
+  background: #dc5555;
+  color: #ffffff;
+}
+
+.mybooking-page .cancel-confirm-yes:hover:not(:disabled) {
+  border-color: #c74343;
+  background: #c74343;
+}
+
+/* Popup ยกเลิกสำเร็จ */
+.mybooking-page .cancel-success-modal {
+  width: min(100%, 400px);
+  padding: 42px 30px 36px;
+}
+
+/* ปุ่ม X ของ Popup สำเร็จ */
+.mybooking-page .cancel-success-modal .rv-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #788397;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mybooking-page .cancel-success-modal .rv-modal-close:hover {
+  background: #f0f3f8;
+  color: #273c70;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .mybooking-page .cancel-booking-modal,
+  .mybooking-page .cancel-success-modal {
+    width: 100%;
+    padding: 30px 20px;
+  }
+
+  .mybooking-page .cancel-booking-actions {
+    gap: 10px;
+  }
+
+  .mybooking-page .cancel-booking-actions button {
+    flex: 1;
+    min-width: 0;
+  }
+}

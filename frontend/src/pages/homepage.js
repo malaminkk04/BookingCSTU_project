@@ -8,11 +8,9 @@ import RoomImage from "../components/RoomImage";
 const STORAGE_USER_KEY = "user";
 const STORAGE_TOKEN_KEY = "token";
 
-//ตรวจวันปลดระงับ
+// ตรวจวันปลดระงับ
 const SUSPENSION_MESSAGE =
   "บัญชีของคุณถูกระงับการจองชั่วคราว 2 สัปดาห์ เนื่องจากไม่มาใช้งานเกิน 2 ครั้ง";
-
-
 
 function localISODate(date = new Date()) {
   return [
@@ -79,6 +77,7 @@ function getMaxBookingDate() {
   const [year, month, day] = today.split("-").map(Number);
 
   const nextMonth = new Date(Date.UTC(year, month, 1));
+
   const lastDayOfNextMonth = new Date(
     Date.UTC(
       nextMonth.getUTCFullYear(),
@@ -108,9 +107,13 @@ function formatMonthKey(year, month) {
 
 function getMonthKeyForOffset(monthKey, offset) {
   const [year, month] = monthKey.split("-").map(Number);
+
   const date = new Date(Date.UTC(year, month - 1 + offset, 1));
 
-  return formatMonthKey(date.getUTCFullYear(), date.getUTCMonth() + 1);
+  return formatMonthKey(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1
+  );
 }
 
 function WeekdayDatePicker({
@@ -124,6 +127,7 @@ function WeekdayDatePicker({
   const [isOpen, setIsOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(minDate.slice(0, 7));
   const [placement, setPlacement] = useState("below");
+
   const containerRef = useRef(null);
   const triggerRef = useRef(null);
 
@@ -153,15 +157,28 @@ function WeekdayDatePicker({
   }, [isOpen]);
 
   const [year, month] = visibleMonth.split("-").map(Number);
+
   const monthStart = new Date(Date.UTC(year, month - 1, 1));
-  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+  const daysInMonth = new Date(
+    Date.UTC(year, month, 0)
+  ).getUTCDate();
+
   const firstWeekday = monthStart.getUTCDay();
-  const weekCount = Math.ceil((firstWeekday + daysInMonth) / 7);
-  const monthLabel = new Intl.DateTimeFormat("th-TH-u-ca-gregory", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(monthStart);
+
+  const weekCount = Math.ceil(
+    (firstWeekday + daysInMonth) / 7
+  );
+
+  const monthLabel = new Intl.DateTimeFormat(
+    "th-TH-u-ca-gregory",
+    {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }
+  ).format(monthStart);
+
   const dateLabel = value
     ? new Intl.DateTimeFormat("th-TH-u-ca-gregory", {
         day: "numeric",
@@ -170,20 +187,27 @@ function WeekdayDatePicker({
         timeZone: "UTC",
       }).format(new Date(`${value}T00:00:00Z`))
     : "เลือกวันที่";
+
   const canGoToPreviousMonth =
     visibleMonth > minDate.slice(0, 7);
+
   const canGoToNextMonth =
     visibleMonth < maxDate.slice(0, 7);
 
   function toggleCalendar() {
     if (!isOpen) {
       setVisibleMonth((value || minDate).slice(0, 7));
+
       const bounds = triggerRef.current?.getBoundingClientRect();
+
       const hasRoomBelow =
         bounds && window.innerHeight - bounds.bottom >= 360;
+
       const hasRoomAbove = bounds && bounds.top >= 360;
 
-      setPlacement(!hasRoomBelow && hasRoomAbove ? "above" : "below");
+      setPlacement(
+        !hasRoomBelow && hasRoomAbove ? "above" : "below"
+      );
     }
 
     setIsOpen(!isOpen);
@@ -202,6 +226,7 @@ function WeekdayDatePicker({
         onClick={toggleCalendar}
       >
         <span>{dateLabel}</span>
+
         <span className="date-picker-trigger-icon" aria-hidden="true">
           ▦
         </span>
@@ -227,7 +252,9 @@ function WeekdayDatePicker({
             >
               ‹
             </button>
+
             <strong>{monthLabel}</strong>
+
             <button
               type="button"
               aria-label="เดือนถัดไป"
@@ -245,13 +272,16 @@ function WeekdayDatePicker({
           <table className="weekday-date-picker-calendar">
             <thead>
               <tr>
-                {["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((day) => (
-                  <th key={day} scope="col">
-                    {day}
-                  </th>
-                ))}
+                {["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map(
+                  (day) => (
+                    <th key={day} scope="col">
+                      {day}
+                    </th>
+                  )
+                )}
               </tr>
             </thead>
+
             <tbody>
               {Array.from({ length: weekCount }, (_, weekIndex) => (
                 <tr key={weekIndex}>
@@ -267,6 +297,7 @@ function WeekdayDatePicker({
                       2,
                       "0"
                     )}`;
+
                     const isDisabled =
                       date < minDate ||
                       date > maxDate ||
@@ -426,7 +457,11 @@ function getAvailableEndTimes(date, startTime) {
     const endMinutes = timeToMinutes(time);
     const duration = endMinutes - startMinutes;
 
-    if (duration < 30 || duration > 120 || duration % 30 !== 0) {
+    if (
+      duration < 30 ||
+      duration > 120 ||
+      duration % 30 !== 0
+    ) {
       return false;
     }
 
@@ -499,6 +534,7 @@ function Homepage() {
   const [purpose, setPurpose] = useState("");
   const [bookingError, setBookingError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showBookingSuccess, setShowBookingSuccess] = useState(false);
   const [clockTick, setClockTick] = useState(0);
 
   const expireSession = useCallback(() => {
@@ -527,6 +563,7 @@ function Homepage() {
     [bookingDate, startTime, clockTick]
   );
 
+  // ตรวจสอบข้อมูลผู้ใช้จาก Local Storage
   useEffect(() => {
     try {
       const storedUser = JSON.parse(
@@ -553,6 +590,7 @@ function Homepage() {
     }
   }, [navigate]);
 
+  // โหลดข้อมูลห้อง
   useEffect(() => {
     if (!user) return undefined;
 
@@ -595,6 +633,7 @@ function Homepage() {
               data.error ||
               `โหลดข้อมูลห้องไม่สำเร็จ (HTTP ${response.status})`
           );
+
           error.status = response.status;
           throw error;
         }
@@ -613,7 +652,8 @@ function Homepage() {
         setRoomStatus(
           loadedRooms.length > 0
             ? {
-                message: "เลือกวันที่และตรวจสอบรายละเอียดก่อนทำการจอง",
+                message:
+                  "เลือกวันที่และตรวจสอบรายละเอียดก่อนทำการจอง",
                 type: "info",
               }
             : {
@@ -643,6 +683,7 @@ function Homepage() {
     return () => controller.abort();
   }, [user, dateFilter, refreshRooms, expireSession]);
 
+  // โหลดโควตาการจอง
   useEffect(() => {
     if (!user?.user_id) {
       setBookingQuota(null);
@@ -652,35 +693,62 @@ function Homepage() {
     const controller = new AbortController();
     const token = localStorage.getItem(STORAGE_TOKEN_KEY);
     const quotaDate = selectedRoom ? bookingDate : dateFilter;
-    const headers = { Accept: "application/json" };
-    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const headers = {
+      Accept: "application/json",
+    };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
 
     fetch(
-      `${API_BASE_URL}/api/bookings/quota?date=${encodeURIComponent(quotaDate)}`,
-      { method: "GET", headers, signal: controller.signal }
+      `${API_BASE_URL}/api/bookings/quota?date=${encodeURIComponent(
+        quotaDate
+      )}`,
+      {
+        method: "GET",
+        headers,
+        signal: controller.signal,
+      }
     )
       .then(async (response) => {
         const result = await response.json().catch(() => ({}));
+
         if (!response.ok) {
-          const error = new Error(result.message || "โหลดโควตาไม่สำเร็จ");
+          const error = new Error(
+            result.message || "โหลดโควตาไม่สำเร็จ"
+          );
+
           error.status = response.status;
           throw error;
         }
+
         return result;
       })
       .then((result) => setBookingQuota(result.quota || null))
       .catch((error) => {
         if (error.name === "AbortError") return;
+
         if (error.status === 401) {
           expireSession();
           return;
         }
+
         setBookingQuota(null);
       });
 
     return () => controller.abort();
-  }, [user, dateFilter, bookingDate, selectedRoom, refreshRooms, expireSession]);
+  }, [
+    user,
+    dateFilter,
+    bookingDate,
+    selectedRoom,
+    refreshRooms,
+    expireSession,
+  ]);
 
+  // ตรวจสอบและปรับเวลาเมื่อเปลี่ยนวันที่หรือเวลา
   useEffect(() => {
     if (!selectedRoom) return;
 
@@ -724,6 +792,7 @@ function Homepage() {
     clockTick,
   ]);
 
+  // ค้นหาและกรองห้อง
   const filteredRooms = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("th-TH");
 
@@ -734,6 +803,7 @@ function Homepage() {
     );
   }, [rooms, floor, search]);
 
+  // แบ่งกลุ่มห้องตามชั้น
   const groupedRooms = useMemo(() => {
     const grouped = new Map();
 
@@ -755,6 +825,7 @@ function Homepage() {
     });
   }, [filteredRooms]);
 
+  // เปิดหน้าต่างจอง
   function openBooking(room) {
     const date = dateFilter || getBangkokDate();
     const starts = getAvailableStartTimes(date);
@@ -767,6 +838,7 @@ function Homepage() {
     setStartTime(start);
     setEndTime(end);
     setPurpose("");
+
     setBookingError(
       starts.length === 0
         ? "ไม่มีเวลาเหลือให้จองในวันที่เลือก กรุณาเลือกวันอื่น"
@@ -774,15 +846,23 @@ function Homepage() {
     );
   }
 
+  // ปิดหน้าต่างจอง
   function closeBooking() {
     setSelectedRoom(null);
     setBookingError("");
   }
 
-  function closeSuspensionModal() {
-  setShowSuspensionModal(false);
-}
+  // ปิด Popup จองสำเร็จ
+  function closeBookingSuccess() {
+    setShowBookingSuccess(false);
+  }
 
+  // ปิด Popup ระงับบัญชี
+  function closeSuspensionModal() {
+    setShowSuspensionPopup(false);
+  }
+
+  // เปลี่ยนวันที่จอง
   function handleBookingDateChange(value) {
     setBookingDate(value);
 
@@ -825,6 +905,7 @@ function Homepage() {
     setBookingError("");
   }
 
+  // เปลี่ยนเวลาเริ่มต้น
   function updateStartTime(value) {
     setStartTime(value);
 
@@ -835,11 +916,13 @@ function Homepage() {
     setBookingError("");
   }
 
+  // เปลี่ยนเวลาสิ้นสุด
   function updateEndTime(value) {
     setEndTime(value);
     setBookingError("");
   }
 
+  // ส่งคำขอจองห้อง
   async function submitBooking(event) {
     event.preventDefault();
 
@@ -853,7 +936,6 @@ function Homepage() {
     }
 
     // ตรวจสอบสถานะระงับก่อนส่งคำขอจอง
-
     if (isAccountSuspended(user.suspended_until)) {
       setShowSuspensionPopup(true);
       return;
@@ -900,8 +982,14 @@ function Homepage() {
       return;
     }
 
-    if (duration < 30 || duration > 120 || duration % 30 !== 0) {
-      setBookingError("ระยะเวลาจองต้องอยู่ระหว่าง 30 นาที–2 ชั่วโมง โดยเพิ่มครั้งละ 30 นาที");
+    if (
+      duration < 30 ||
+      duration > 120 ||
+      duration % 30 !== 0
+    ) {
+      setBookingError(
+        "ระยะเวลาจองต้องอยู่ระหว่าง 30 นาที–2 ชั่วโมง โดยเพิ่มครั้งละ 30 นาที"
+      );
       return;
     }
 
@@ -937,29 +1025,39 @@ function Homepage() {
         const error = new Error(
           result.message || "กรุณาเข้าสู่ระบบใหม่"
         );
+
         error.status = response.status;
         throw error;
       }
 
-      if (response.status === 403 && result.code === "ACCOUNT_SUSPENDED") {
-      setShowSuspensionPopup(true);
-      return;
-    }
+      if (
+        response.status === 403 &&
+        result.code === "ACCOUNT_SUSPENDED"
+      ) {
+        setShowSuspensionPopup(true);
+        return;
+      }
 
-          if (!response.ok) {
-            throw new Error(
-              result.message ||
-                result.error ||
-                "จองห้องไม่สำเร็จ กรุณาลองใหม่"
-            );
-          }
+      if (!response.ok) {
+        throw new Error(
+          result.message ||
+            result.error ||
+            "จองห้องไม่สำเร็จ กรุณาลองใหม่"
+        );
+      }
 
-      if (result.quota) setBookingQuota(result.quota);
+      if (result.quota) {
+        setBookingQuota(result.quota);
+      }
+
       setDateFilter(bookingDate);
       setRefreshRooms((value) => value + 1);
+
+      // ปิดหน้าต่างกรอกข้อมูลการจอง
       closeBooking();
 
-      window.alert(result.message || "จองห้องสำเร็จ");
+      // แสดง Popup จองสำเร็จ
+      setShowBookingSuccess(true);
     } catch (error) {
       if (error.status === 401) {
         expireSession();
@@ -976,10 +1074,12 @@ function Homepage() {
     }
   }
 
+  // กรณีกำลังตรวจสอบ Login
   if (!user) {
     return (
       <div className="booking-app">
         <Navbar />
+
         <main className="page-content">
           <p>กำลังตรวจสอบการเข้าสู่ระบบ...</p>
         </main>
@@ -992,10 +1092,13 @@ function Homepage() {
       <Navbar />
 
       <main className="page-content">
+        {/* ส่วนหัว */}
         <section className="page-heading">
           <div>
             <p className="eyebrow">THAMMASAT UNIVERSITY</p>
+
             <h1>จองห้อง</h1>
+
             <p className="page-subtitle">
               อาคารบรรยายเรียนรวม 2 | มหาวิทยาลัยธรรมศาสตร์ ศูนย์รังสิต
             </p>
@@ -1010,9 +1113,11 @@ function Homepage() {
           </div>
         </section>
 
+        {/* ตัวกรองห้อง */}
         <section className="filter-panel" aria-label="ค้นหาและกรองห้อง">
           <div className="filter-field">
             <label htmlFor="floorFilter">ชั้น</label>
+
             <select
               id="floorFilter"
               value={floor}
@@ -1027,6 +1132,7 @@ function Homepage() {
 
           <div className="filter-field date-filter-field">
             <label htmlFor="bookingDateFilter">วันที่ต้องการจอง</label>
+
             <WeekdayDatePicker
               id="bookingDateFilter"
               label="เลือกวันที่ต้องการจอง"
@@ -1039,6 +1145,7 @@ function Homepage() {
 
           <div className="filter-field search-field">
             <label htmlFor="roomSearch">ค้นหาห้อง</label>
+
             <input
               id="roomSearch"
               type="search"
@@ -1063,15 +1170,18 @@ function Homepage() {
           </button>
         </section>
 
+        {/* จำนวนห้อง */}
         <div className="results-heading">
           <div>
             <h2>ห้องทั้งหมด</h2>
+
             <p id="roomCount" className="muted-text">
               พบ {filteredRooms.length} ห้อง
             </p>
           </div>
         </div>
 
+        {/* สถานะโหลดข้อมูล */}
         <div
           id="statusMessage"
           className={`status-message status-${roomStatus.type}`}
@@ -1081,6 +1191,7 @@ function Homepage() {
           {roomStatus.message}
         </div>
 
+        {/* รายการห้อง */}
         <div id="roomList" className="room-list">
           {groupedRooms.map(([floorNumber, floorRooms]) => (
             <section className="floor-section" key={floorNumber}>
@@ -1118,13 +1229,16 @@ function Homepage() {
                     </div>
 
                     <h4 className="room-name">{roomName(room)}</h4>
+
                     <p className="room-capacity">
                       รองรับ {roomCapacity(room)} คน
                     </p>
+
                     <p className="room-description">
                       {roomDescription(room)}
                     </p>
 
+                    {/* Timeline */}
                     <div className="room-hours">
                       <div className="room-hours-heading">
                         <span>เวลาให้บริการ</span>
@@ -1173,6 +1287,7 @@ function Homepage() {
                       </div>
                     </div>
 
+                    {/* ปุ่มจอง */}
                     <button
                       type="button"
                       className="button button-primary button-full book-room-button"
@@ -1187,53 +1302,100 @@ function Homepage() {
           ))}
         </div>
 
+        {/* Footer */}
         <footer className="site-footer">
           <p>BOOKING CSTU ROOM · Thammasat University</p>
         </footer>
       </main>
 
+      {/* Popup ระงับบัญชี */}
       {showSuspensionPopup && (
-  <div className="suspension-modal-backdrop">
-    <section
-      className="suspension-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="suspensionModalTitle"
-    >
-      <button
-        type="button"
-        className="suspension-modal-close"
-        aria-label="ปิดหน้าต่างแจ้งเตือน"
-        onClick={() => setShowSuspensionPopup(false)}
-      >
-        ×
-      </button>
+        <div className="suspension-modal-backdrop">
+          <section
+            className="suspension-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="suspensionModalTitle"
+          >
+            <button
+              type="button"
+              className="suspension-modal-close"
+              aria-label="ปิดหน้าต่างแจ้งเตือน"
+              onClick={closeSuspensionModal}
+            >
+              ×
+            </button>
 
-      <div className="suspension-modal-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24">
-          <path d="M12 3L2.8 20h18.4L12 3z" />
-          <path d="M12 9v5" />
-          <circle cx="12" cy="17" r="0.7" />
-        </svg>
-      </div>
+            <div className="suspension-modal-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 3L2.8 20h18.4L12 3z" />
+                <path d="M12 9v5" />
+                <circle cx="12" cy="17" r="0.7" />
+              </svg>
+            </div>
 
-      <h2 id="suspensionModalTitle">
-        บัญชีถูกระงับการจอง
-      </h2>
+            <h2 id="suspensionModalTitle">
+              บัญชีถูกระงับการจอง
+            </h2>
 
-      <p>
-        บัญชีของคุณถูกระงับการจองชั่วคราว 2 สัปดาห์
-        เนื่องจากไม่มาใช้งานเกิน 2 ครั้ง
-      </p>
+            <p>{SUSPENSION_MESSAGE}</p>
 
-      <div className="suspension-modal-status">
-        <span>สถานะบัญชี</span>
-        <strong>ระงับการจองชั่วคราว</strong>
-      </div>
-    </section>
-  </div>
-)}
+            <div className="suspension-modal-status">
+              <span>สถานะบัญชี</span>
+              <strong>ระงับการจองชั่วคราว</strong>
+            </div>
+          </section>
+        </div>
+      )}
 
+      {/* Popup จองห้องสำเร็จ */}
+      {showBookingSuccess && (
+        <div
+          className="booking-success-backdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closeBookingSuccess();
+            }
+          }}
+        >
+          <section
+            className="booking-success-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bookingSuccessTitle"
+          >
+            <button
+              type="button"
+              className="booking-success-close"
+              aria-label="ปิดหน้าต่าง"
+              onClick={closeBookingSuccess}
+            >
+              ×
+            </button>
+
+            <div className="booking-success-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M5 12l4 4L19 6" />
+              </svg>
+            </div>
+
+            <h2 id="bookingSuccessTitle">
+              จองห้องสำเร็จ
+            </h2>
+
+            <p>บันทึกการจองของคุณเรียบร้อยแล้ว</p>
+          </section>
+        </div>
+      )}
+
+      {/* Modal รายละเอียดการจอง */}
       {selectedRoom && (
         <div
           id="bookingModal"
@@ -1262,14 +1424,18 @@ function Homepage() {
             </button>
 
             <p className="eyebrow">BOOKING DETAILS</p>
+
             <h2 id="bookingModalTitle">จองห้อง</h2>
+
             <p id="selectedRoomName" className="selected-room-name">
               {roomName(selectedRoom)}
             </p>
 
             <form id="bookingForm" onSubmit={submitBooking}>
+              {/* ชื่อผู้จอง */}
               <div className="form-field">
                 <label htmlFor="bookingUserName">ชื่อผู้จอง</label>
+
                 <input
                   id="bookingUserName"
                   type="text"
@@ -1283,18 +1449,27 @@ function Homepage() {
                 />
               </div>
 
+              {/* Username */}
               <div className="form-field">
                 <label htmlFor="bookingUsername">Username</label>
+
                 <input
                   id="bookingUsername"
                   type="text"
-                  value={user.username || user.tu_id || user.user_id || ""}
+                  value={
+                    user.username ||
+                    user.tu_id ||
+                    user.user_id ||
+                    ""
+                  }
                   readOnly
                 />
               </div>
 
+              {/* วันที่จอง */}
               <div className="form-field">
                 <label htmlFor="bookingDate">วันที่จอง</label>
+
                 <WeekdayDatePicker
                   id="bookingDate"
                   label="เลือกวันที่จอง"
@@ -1305,13 +1480,16 @@ function Homepage() {
                 />
               </div>
 
+              {/* เวลา */}
               <div className="form-row time-select-row">
+                {/* เวลาเริ่มต้น */}
                 <div className="form-field time-select-group">
                   <label>เวลาเริ่มต้น</label>
 
                   <div className="time-select-pair">
                     <div className="time-select-control">
                       <label htmlFor="startHour">ชั่วโมง</label>
+
                       <select
                         id="startHour"
                         value={startTime ? startTime.slice(0, 2) : ""}
@@ -1322,7 +1500,9 @@ function Homepage() {
                             (time) => time.slice(0, 2) === hour
                           );
 
-                          if (nextTime) updateStartTime(nextTime);
+                          if (nextTime) {
+                            updateStartTime(nextTime);
+                          }
                         }}
                         required
                         disabled={availableStartTimes.length === 0}
@@ -1343,6 +1523,7 @@ function Homepage() {
 
                     <div className="time-select-control">
                       <label htmlFor="startMinute">นาที</label>
+
                       <select
                         id="startMinute"
                         value={startTime ? startTime.slice(3, 5) : ""}
@@ -1358,7 +1539,9 @@ function Homepage() {
                           .filter(
                             (time) =>
                               time.slice(0, 2) ===
-                              (startTime ? startTime.slice(0, 2) : "")
+                              (startTime
+                                ? startTime.slice(0, 2)
+                                : "")
                           )
                           .map((time) => time.slice(3, 5))
                           .map((minute) => (
@@ -1371,12 +1554,14 @@ function Homepage() {
                   </div>
                 </div>
 
+                {/* เวลาสิ้นสุด */}
                 <div className="form-field time-select-group">
                   <label>เวลาสิ้นสุด</label>
 
                   <div className="time-select-pair">
                     <div className="time-select-control">
                       <label htmlFor="endHour">ชั่วโมง</label>
+
                       <select
                         id="endHour"
                         value={endTime ? endTime.slice(0, 2) : ""}
@@ -1387,7 +1572,9 @@ function Homepage() {
                             (time) => time.slice(0, 2) === hour
                           );
 
-                          if (nextTime) updateEndTime(nextTime);
+                          if (nextTime) {
+                            updateEndTime(nextTime);
+                          }
                         }}
                         required
                         disabled={availableEndTimes.length === 0}
@@ -1408,6 +1595,7 @@ function Homepage() {
 
                     <div className="time-select-control">
                       <label htmlFor="endMinute">นาที</label>
+
                       <select
                         id="endMinute"
                         value={endTime ? endTime.slice(3, 5) : ""}
@@ -1423,7 +1611,9 @@ function Homepage() {
                           .filter(
                             (time) =>
                               time.slice(0, 2) ===
-                              (endTime ? endTime.slice(0, 2) : "")
+                              (endTime
+                                ? endTime.slice(0, 2)
+                                : "")
                           )
                           .map((time) => time.slice(3, 5))
                           .map((minute) => (
@@ -1437,6 +1627,7 @@ function Homepage() {
                 </div>
               </div>
 
+              {/* วัตถุประสงค์ */}
               <div className="form-field">
                 <label htmlFor="bookingPurpose">
                   วัตถุประสงค์ (ถ้ามี)
@@ -1453,31 +1644,44 @@ function Homepage() {
                 />
               </div>
 
+              {/* ข้อกำหนด */}
               <p className="form-note">
                 เปิดให้บริการวันจันทร์–ศุกร์ เวลา 08:00–16:00 น.
                 โดยสามารถจองได้รอบละ 30 นาที–2 ชั่วโมง
               </p>
 
-              {bookingQuota && bookingQuota.month === bookingDate.slice(0, 7) && (
-                <p className="form-note" aria-live="polite">
-                  โควตาเดือน {bookingQuota.month}: ใช้ไป {bookingQuota.used_minutes / 60} / {bookingQuota.limit_minutes / 60} ชั่วโมง
-                  (คงเหลือ {bookingQuota.remaining_minutes / 60} ชั่วโมง)
-                </p>
-              )}
+              {/* โควตา */}
+              {bookingQuota &&
+                bookingQuota.month === bookingDate.slice(0, 7) && (
+                  <p className="form-note" aria-live="polite">
+                    โควตาเดือน {bookingQuota.month}: ใช้ไป{" "}
+                    {bookingQuota.used_minutes / 60} /{" "}
+                    {bookingQuota.limit_minutes / 60} ชั่วโมง
+                    (คงเหลือ{" "}
+                    {bookingQuota.remaining_minutes / 60} ชั่วโมง)
+                  </p>
+                )}
 
-              {bookingQuota && bookingQuota.month === bookingDate.slice(0, 7) && startTime && endTime &&
-                timeToMinutes(endTime) - timeToMinutes(startTime) > bookingQuota.remaining_minutes && (
+              {/* ตรวจสอบโควตาที่เหลือ */}
+              {bookingQuota &&
+                bookingQuota.month === bookingDate.slice(0, 7) &&
+                startTime &&
+                endTime &&
+                timeToMinutes(endTime) - timeToMinutes(startTime) >
+                  bookingQuota.remaining_minutes && (
                   <p className="form-error" role="alert">
                     โควตาเดือนนี้คงเหลือไม่เพียงพอสำหรับช่วงเวลาที่เลือก
                   </p>
                 )}
 
+              {/* ข้อความแจ้งเตือน */}
               {bookingError && (
                 <p id="bookingError" className="form-error" role="alert">
                   {bookingError}
                 </p>
               )}
 
+              {/* ปุ่ม */}
               <div className="modal-actions">
                 <button
                   type="button"
