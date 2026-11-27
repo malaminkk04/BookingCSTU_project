@@ -1,6 +1,6 @@
 const { BOOKING_QUOTA_STATUSES } = require("./booking-status");
 
-const BOOKING_QUOTA_LIMIT_MINUTES = 20 * 60;
+const BOOKING_QUOTA_LIMIT_MINUTES = 20 * 60; //1200minutes
 const MIN_BOOKING_MINUTES = 30;
 const MAX_BOOKING_MINUTES = 120;
 
