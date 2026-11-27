@@ -1,6 +1,7 @@
 {
   "name": "frontend",
   "version": "1.0.0",
+  "homepage": "https://malaminkk04.github.io/BookingCSTU_project",
   "description": "",
   "main": "index.js",
   "scripts": {
