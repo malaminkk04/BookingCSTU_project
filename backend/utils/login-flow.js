@@ -51,10 +51,13 @@ function isDemoLoginIdentifier(identifier) {
 }
 
 function isDemoLoginEnabled(env = process.env) {
-  return (
-    env.NODE_ENV === "development" &&
-    env.DEMO_LOGIN_ENABLED === "true"
-  );
+  const demoEnabled = env.DEMO_LOGIN_ENABLED === "true";
+
+  const productionAllowed =
+    env.NODE_ENV !== "production" ||
+    env.DEMO_LOGIN_ALLOW_PRODUCTION === "true";
+
+  return demoEnabled && productionAllowed;
 }
 
 function getTuAffiliation(data) {
