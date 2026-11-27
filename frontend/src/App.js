@@ -62,7 +62,7 @@ function App() {
           />
         </Route>
       </Routes>
-    <Router basename="/BookingCSTU_project">
+    </Router>
   );
 }
 
