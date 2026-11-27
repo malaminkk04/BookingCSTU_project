@@ -1,5 +1,7 @@
+
 const ALLOWED_FACULTY = "คณะวิทยาศาสตร์และเทคโนโลยี";
 const ALLOWED_MAJOR = "ภาควิชาวิทยาการคอมพิวเตอร์";
+
 const LOGIN_RESTRICTION_MESSAGE =
   "ขออภัย ระบบนี้อนุญาตให้ใช้งานเฉพาะนักศึกษาและบุคลากรคณะวิทยาศาสตร์และเทคโนโลยี สาขาวิทยาการคอมพิวเตอร์เท่านั้น";
 
@@ -12,10 +14,11 @@ const DEMO_LOGIN_ACCOUNTS = {
       email: "admin.demo@example.com",
       displayname_th: "ผู้ดูแลระบบตัวอย่าง",
       faculty: ALLOWED_FACULTY,
-      major: "Computer Science",
+      major: ALLOWED_MAJOR,
       role: "admin"
     }
   },
+
   teacher_demo: {
     passwordEnvironmentVariable: "DEMO_TEACHER_PASSWORD",
     userData: {
@@ -24,12 +27,16 @@ const DEMO_LOGIN_ACCOUNTS = {
       email: "teacher.demo@example.com",
       displayname_th: "อาจารย์ตัวอย่าง",
       faculty: ALLOWED_FACULTY,
-      major: "ภาควิชาวิทยาการคอมพิวเตอร์",
+      major: ALLOWED_MAJOR,
       role: "teacher"
     }
   }
 };
-const DEMO_LOGIN_IDENTIFIERS = new Set(Object.keys(DEMO_LOGIN_ACCOUNTS));
+
+const DEMO_LOGIN_IDENTIFIERS = new Set(
+  Object.keys(DEMO_LOGIN_ACCOUNTS)
+);
+
 const FACULTY_FIELD_CANDIDATES = ["faculty"];
 const MAJOR_FIELD_CANDIDATES = ["department"];
 
@@ -50,18 +57,15 @@ function isDemoLoginIdentifier(identifier) {
   );
 }
 
+// อนุญาต Demo Login ทั้ง Development และ Production
+// เมื่อเปิดใช้งานด้วย DEMO_LOGIN_ENABLED=true
 function isDemoLoginEnabled(env = process.env) {
-  const demoEnabled = env.DEMO_LOGIN_ENABLED === "true";
-
-  const productionAllowed =
-    env.NODE_ENV !== "production" ||
-    env.DEMO_LOGIN_ALLOW_PRODUCTION === "true";
-
-  return demoEnabled && productionAllowed;
+  return env.DEMO_LOGIN_ENABLED === "true";
 }
 
 function getTuAffiliation(data) {
-  const response = data && typeof data === "object" ? data : {};
+  const response =
+    data && typeof data === "object" ? data : {};
 
   return {
     faculty: response.faculty,
@@ -69,8 +73,15 @@ function getTuAffiliation(data) {
   };
 }
 
-function getFieldDebugInfo(response, fieldCandidates, responsePath) {
-  const selectedField = fieldCandidates.find((field) => response[field]);
+function getFieldDebugInfo(
+  response,
+  fieldCandidates,
+  responsePath
+) {
+  const selectedField = fieldCandidates.find(
+    (field) => response[field]
+  );
+
   const existingField =
     selectedField ||
     fieldCandidates.find((field) =>
@@ -99,7 +110,9 @@ function getFieldDebugInfo(response, fieldCandidates, responsePath) {
 
 function sanitizeDebugValue(value) {
   if (typeof value !== "string") {
-    return value === null ? null : `<${typeof value} omitted>`;
+    return value === null
+      ? null
+      : `<${typeof value} omitted>`;
   }
 
   const sanitized = value
@@ -108,9 +121,7 @@ function sanitizeDebugValue(value) {
     .trim()
     .slice(0, 100);
 
-  if (
-    /@|https?:\/\/|\b\d{6,}\b/i.test(sanitized)
-  ) {
+  if (/@|https?:\/\/|\b\d{6,}\b/i.test(sanitized)) {
     return "<redacted>";
   }
 
@@ -118,7 +129,8 @@ function sanitizeDebugValue(value) {
 }
 
 function getTuAffiliationDebugInfo(data, responsePath) {
-  const response = data && typeof data === "object" ? data : {};
+  const response =
+    data && typeof data === "object" ? data : {};
 
   return {
     responsePath,
@@ -155,11 +167,15 @@ function logTuAffiliationDebug(
     "[TU_AUTH_DEBUG]",
     getTuAffiliationDebugInfo(data, responsePath)
   );
+
   return true;
 }
 
 function getUserRole(accountType) {
-  const type = String(accountType || "").trim().toLowerCase();
+  const type = String(accountType || "")
+    .trim()
+    .toLowerCase();
+
   return type === "student" ? "student" : "teacher";
 }
 
@@ -174,10 +190,17 @@ async function authenticateLogin(
     env = process.env
   }
 ) {
+  // ตรวจสอบ Demo Login ก่อนเข้าสู่ระบบ TU API
   if (isDemoLoginIdentifier(identifier)) {
-    const normalizedIdentifier = String(identifier).trim().toLowerCase();
-    const demoAccount = DEMO_LOGIN_ACCOUNTS[normalizedIdentifier];
-    const expectedPassword = env[demoAccount.passwordEnvironmentVariable];
+    const normalizedIdentifier = String(identifier)
+      .trim()
+      .toLowerCase();
+
+    const demoAccount =
+      DEMO_LOGIN_ACCOUNTS[normalizedIdentifier];
+
+    const expectedPassword =
+      env[demoAccount.passwordEnvironmentVariable];
 
     if (
       !isDemoLoginEnabled(env) ||
@@ -189,17 +212,22 @@ async function authenticateLogin(
     }
 
     const userData = { ...demoAccount.userData };
+
     const savedUser = await saveUser(userData);
 
     if (!savedUser || !savedUser.user_id) {
-      throw new Error("Unable to save or load demo user account");
+      throw new Error(
+        "Unable to save or load demo user account"
+      );
     }
 
     const authenticatedUser = {
       ...savedUser,
       ...userData,
-      access_level: userData.role === "admin" ? "admin" : "user"
+      access_level:
+        userData.role === "admin" ? "admin" : "user"
     };
+
     const token = createToken(authenticatedUser);
 
     return {
@@ -210,13 +238,22 @@ async function authenticateLogin(
     };
   }
 
-  const loginIdentifier = await resolveLoginIdentifier(identifier);
-  const { data: responseData, responsePath } = await verifyWithTuApi(
+  // Login ผู้ใช้จริงผ่าน TU API
+  const loginIdentifier =
+    await resolveLoginIdentifier(identifier);
+
+  const {
+    data: responseData,
+    responsePath
+  } = await verifyWithTuApi(
     loginIdentifier,
     password
   );
+
   const data =
-    responseData && typeof responseData === "object" ? responseData : {};
+    responseData && typeof responseData === "object"
+      ? responseData
+      : {};
 
   debugTuAffiliation(data, responsePath);
 
@@ -265,17 +302,18 @@ async function authenticateLogin(
   };
 
   const savedUser = await saveUser(userData);
+
   if (!savedUser || !savedUser.user_id) {
     throw new Error("Unable to save or load user account");
   }
 
-  // The database record may contain stale authorization fields. Derive the
-  // session access level from the role established from the TU response.
   const authenticatedUser = {
     ...savedUser,
     ...userData,
-    access_level: userData.role === "admin" ? "admin" : "user"
+    access_level:
+      userData.role === "admin" ? "admin" : "user"
   };
+
   const token = createToken(authenticatedUser);
 
   return {
