@@ -25,7 +25,7 @@ function AdminComingSoon({ title }) {
 
 function App() {
   return (
-    <Router>
+    <Router basename="/BookingCSTU_project">
       <Routes>
         {/* หน้าผู้ใช้ */}
         <Route path="/" element={<Login />} />
@@ -62,7 +62,7 @@ function App() {
           />
         </Route>
       </Routes>
-    </Router>
+    <Router basename="/BookingCSTU_project">
   );
 }
 
