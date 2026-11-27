@@ -37,7 +37,7 @@ jobs:
       - name: Build React
         working-directory: frontend
         env:
-          REACT_APP_API_BASE_URL: https://bookingcstu-backend.onrender.com
+          REACT_APP_API_BASE_URL: http://localhost:5001
         run: npm run build
 
       - name: Upload Pages artifact
