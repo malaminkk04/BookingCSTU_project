@@ -241,9 +241,12 @@ test("does not persist or create a session when TU authentication fails", async 
   assert.deepEqual(calls, []);
 });
 
-test("enables demo login only when explicitly enabled in development", () => {
+test("enables demo login only when explicitly enabled", () => {
   for (const env of [
-    { NODE_ENV: "development", DEMO_LOGIN_ENABLED: "true" }
+    { NODE_ENV: "development", DEMO_LOGIN_ENABLED: "true" },
+    { NODE_ENV: "production", DEMO_LOGIN_ENABLED: "true" },
+    { NODE_ENV: "test", DEMO_LOGIN_ENABLED: "true" },
+    { DEMO_LOGIN_ENABLED: "true" }
   ]) {
     assert.equal(isDemoLoginEnabled(env), true);
   }
@@ -251,10 +254,10 @@ test("enables demo login only when explicitly enabled in development", () => {
   for (const env of [
     { NODE_ENV: "development", DEMO_LOGIN_ENABLED: "false" },
     { NODE_ENV: "development" },
-    { NODE_ENV: "production", DEMO_LOGIN_ENABLED: "true" },
     { NODE_ENV: "production", DEMO_LOGIN_ENABLED: "false" },
-    { DEMO_LOGIN_ENABLED: "true" },
-    { NODE_ENV: "test", DEMO_LOGIN_ENABLED: "true" }
+    { NODE_ENV: "production" },
+    { DEMO_LOGIN_ENABLED: "false" },
+    {}
   ]) {
     assert.equal(isDemoLoginEnabled(env), false);
   }
@@ -345,11 +348,12 @@ test("authenticates the demo teacher without allowing request or stored admin ac
 
 test("rejects disabled demo environments and incorrect credentials without creating a session", async () => {
   const disabledEnvironments = [
-    { NODE_ENV: "development", DEMO_LOGIN_ENABLED: "false" },
-    { NODE_ENV: "development" },
-    { NODE_ENV: "production", DEMO_LOGIN_ENABLED: "true" },
-    { NODE_ENV: "production", DEMO_LOGIN_ENABLED: "false" },
-    { DEMO_LOGIN_ENABLED: "true" }
+  { NODE_ENV: "development", DEMO_LOGIN_ENABLED: "false" },
+  { NODE_ENV: "development" },
+  { NODE_ENV: "production", DEMO_LOGIN_ENABLED: "false" },
+  { NODE_ENV: "production" },
+  { DEMO_LOGIN_ENABLED: "false" },
+  {}
   ];
 
   for (const [identifier, passwordEnvironmentVariable] of [
@@ -620,4 +624,23 @@ test("does not emit debug output when TU authentication errors", async () => {
   );
 
   assert.deepEqual(output, []);
+});
+test("allows demo login in production when enabled", () => {
+  assert.equal(
+    isDemoLoginEnabled({
+      NODE_ENV: "production",
+      DEMO_LOGIN_ENABLED: "true"
+    }),
+    true
+  );
+});
+
+test("rejects demo login in production when disabled", () => {
+  assert.equal(
+    isDemoLoginEnabled({
+      NODE_ENV: "production",
+      DEMO_LOGIN_ENABLED: "false"
+    }),
+    false
+  );
 });
