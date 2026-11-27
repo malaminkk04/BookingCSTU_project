@@ -1237,186 +1237,202 @@
   outline-offset: 2px;
 }
 
-
-/* ========================================
-   ROOM REVIEW DETAIL - MODERN UI
-======================================== */
-
 .room-review-detail {
-  width: 100%;
-  max-width: 850px;
-  padding: 28px;
-  background: #ffffff;
-  border-radius: 20px;
-  box-sizing: border-box;
-  color: #263653;
-  box-shadow: 0 12px 40px rgba(30, 52, 91, 0.10);
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid #e8edf6;
+  scroll-margin-top: 90px;
 }
 
-/* Header */
 .room-review-detail-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 26px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid #edf0f6;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .room-review-detail-head h3 {
   margin: 0;
-  color: #263f72;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
 }
 
-.room-review-detail-head .button {
-  border: 1px solid #e6eaf1;
-  border-radius: 10px;
-  padding: 9px 16px;
-  background: #f7f9fc;
-  color: #53627b;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
+@media (max-width: 640px) {
+  .room-filter-control,
+  .room-search {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
-.room-review-detail-head .button:hover {
-  background: #edf2fa;
-  border-color: #d5deed;
-  color: #354f8b;
+
+/* =========================================
+   ROOM REVIEW - ROOM 301 SAMPLE REVIEWS
+   ========================================= */
+
+.room-review-section {
+  width: 100%;
+  margin: 24px auto;
 }
 
-/* Statistics */
-.room-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.room-stat {
-  position: relative;
-  min-width: 0;
-  padding: 22px 20px;
-  border: 1px solid #e9edf5;
-  border-radius: 16px;
+.room-review-card {
   background: #ffffff;
-  box-shadow: 0 4px 14px rgba(42, 65, 105, 0.04);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid #e3e9f3;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(37, 60, 114, 0.06);
 }
 
-.room-stat:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(42, 65, 105, 0.08);
+.room-review-card h2,
+.room-review-card h3 {
+  color: #273c70;
+  margin-top: 0;
 }
 
-.room-stat-label {
-  display: block;
-  margin-bottom: 12px;
-  color: #7b879c;
-  font-size: 13px;
-  font-weight: 500;
+.room-review-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 18px;
+  margin: 16px 0 22px;
+  background: #f3f6fc;
+  border: 1px solid #e3e9f3;
+  border-radius: 12px;
 }
 
-.room-stat-value {
-  color: #2f4779;
-  font-size: 34px;
+.room-review-average {
+  color: #273c70;
+  font-size: 32px;
+  font-weight: 800;
   line-height: 1.2;
-  font-weight: 750;
-  letter-spacing: -1px;
 }
 
-.room-stat-value small {
-  color: #8994a8;
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0;
-}
-
-.room-stat .stars {
-  margin-top: 8px;
-  color: #e5ad38;
+.room-review-stars {
+  color: #f5ad28;
   font-size: 20px;
-  letter-spacing: 3px;
+  letter-spacing: 2px;
 }
 
-/* Review List */
-.review-list {
+.room-review-count {
+  color: #68758d;
+  font-size: 14px;
+}
+
+.room-review-list {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-/* Empty State */
-.room-review-detail > .empty-state {
+.room-review-item {
+  padding: 18px;
+  border: 1px solid #e8edf5;
+  border-radius: 12px;
+  background: #ffffff;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.room-review-item:hover {
+  border-color: #c7d4ec;
+  box-shadow: 0 4px 12px rgba(39, 60, 112, 0.06);
+}
+
+.room-review-item-header {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 190px;
-  margin: 0;
-  padding: 30px 20px;
-  border: 1px dashed #dce3ef;
-  border-radius: 16px;
-  background: #f8faff;
-  color: #7b879c;
-  text-align: center;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.room-review-user {
+  color: #273c70;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.room-review-date {
+  color: #8a94a7;
+  font-size: 13px;
+}
+
+.room-review-message {
+  color: #4b5568;
   font-size: 14px;
-  line-height: 1.7;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+  margin: 10px 0 0;
 }
 
-.room-review-detail > .empty-state::before {
-  content: "✧";
-  display: flex;
+.room-review-sample-label {
+  display: inline-flex;
   align-items: center;
+  padding: 4px 9px;
+  color: #52698e;
+  background: #edf2fa;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.room-review-empty {
+  padding: 32px 20px;
+  text-align: center;
+  color: #7b879c;
+  background: #f8faff;
+  border: 1px dashed #d5deed;
+  border-radius: 12px;
+}
+
+.room-review-button {
+  display: inline-flex;
   justify-content: center;
-  width: 54px;
-  height: 54px;
-  margin-bottom: 14px;
-  border-radius: 50%;
-  background: #eaf0fb;
-  color: #5274b8;
-  font-size: 30px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  color: #ffffff;
+  background: #354f8b;
+  border: 1px solid #354f8b;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
-.room-review-detail > .empty-state::after {
-  content: "เมื่อมีผู้ใช้งานส่งรีวิว ความคิดเห็นจะแสดงในส่วนนี้";
-  display: block;
-  margin-top: 5px;
-  color: #9aa5b7;
-  font-size: 12px;
+.room-review-button:hover {
+  background: #273c70;
+  border-color: #273c70;
+  transform: translateY(-1px);
 }
 
-/* Responsive */
+.room-review-button:focus-visible {
+  outline: 3px solid rgba(53, 79, 139, 0.25);
+  outline-offset: 3px;
+}
+
 @media (max-width: 600px) {
-  .room-review-detail {
-    padding: 18px;
-    border-radius: 16px;
-  }
-
-  .room-review-detail-head {
-    gap: 10px;
-    margin-bottom: 20px;
-  }
-
-  .room-review-detail-head h3 {
-    font-size: 17px;
-  }
-
-  .room-summary {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .room-stat {
+  .room-review-card {
     padding: 16px;
+    border-radius: 12px;
   }
 
-  .room-stat-value {
+  .room-review-summary {
+    padding: 14px;
+    gap: 8px;
+  }
+
+  .room-review-average {
     font-size: 28px;
+  }
+
+  .room-review-item {
+    padding: 14px;
+  }
+
+  .room-review-item-header {
+    flex-direction: column;
+    gap: 6px;
   }
 }
